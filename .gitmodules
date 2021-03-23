@@ -1,0 +1,15 @@
+[submodule "lib/glfw"]
+	path = lib/glfw
+	url = https://github.com/glfw/glfw.git
+[submodule "lib/glm"]
+	path = lib/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "lib/vulkan"]
+	path = lib/vulkan
+	url = https://github.com/KhronosGroup/Vulkan-Headers.git
+[submodule "lib/glog"]
+	path = lib/glog
+	url = https://github.com/google/glog
+[submodule "lib/spdlog"]
+	path = lib/spdlog
+	url = https://github.com/gabime/spdlog
