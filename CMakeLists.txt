@@ -3,7 +3,9 @@ project(Calypso)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(${PROJECT_NAME} src/main.cpp src/hello_triangle.cpp src/hello_triangle.h src/util/vulkan.cpp src/util/vulkan.h)
+add_compile_definitions(ROOT_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
+
+add_executable(${PROJECT_NAME} src/main.cpp src/hello_triangle.cpp src/hello_triangle.h src/util/vulkan.cpp src/util/vulkan.h src/util/file.cpp src/util/file.h)
 
 ### glfw ###############################################################################################################
 

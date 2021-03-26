@@ -10,8 +10,10 @@
 #include <stdexcept>
 #include <vector>
 #define GLFW_INCLUDE_VULKAN
+#include "util/file.h"
 #include <GLFW/glfw3.h>
 #include <spdlog/spdlog.h>
+#include <vulkan/vulkan.hpp>
 
 class HelloTriangle {
  public:
@@ -34,6 +36,8 @@ class HelloTriangle {
   static constexpr bool ENABLE_VALIDATION_LAYERS = true;
 #endif
 
+  static constexpr int MAX_FRAMES_IN_FLIGHT = 5;
+
   GLFWwindow *window_;
   VkInstance instance_;
   VkPhysicalDevice physicalDevice_ = VK_NULL_HANDLE;
@@ -42,8 +46,29 @@ class HelloTriangle {
   VkQueue graphicsQueue_;
   VkQueue presentQueue_;
   VkSurfaceKHR surface_;
-  VkSwapchainKHR swapChain_;
 
+  VkSwapchainKHR swapChain_;
+  std::vector<VkImage> swapChainImages_;
+  VkFormat swapChainImageFormat_;
+  VkExtent2D swapChainExtent_;
+  
+  std::vector<VkImageView> swapChainImageViews_;
+  std::vector<VkFramebuffer> swapChainFramebuffers_;
+  
+  VkRenderPass renderPass_;
+  VkPipelineLayout pipelineLayout_;
+  VkPipeline graphicsPipeline_;
+
+  VkCommandPool commandPool_;
+  std::vector<VkCommandBuffer> commandBuffers_;
+
+  std::vector<VkSemaphore> imageAvailableSemaphores_ = std::vector<VkSemaphore>(MAX_FRAMES_IN_FLIGHT);
+  std::vector<VkSemaphore> renderFinishedSemaphores_ = std::vector<VkSemaphore>(MAX_FRAMES_IN_FLIGHT);
+  std::vector<VkFence> inFlightFences_ = std::vector<VkFence>(MAX_FRAMES_IN_FLIGHT);
+  std::vector<VkFence> imagesInFlight_;
+  std::size_t currentFrame_ = 0;
+  bool framebufferResized_ = false;
+  
   static constexpr uint32_t WIDTH = 1024;
   static constexpr uint32_t HEIGHT = 768;
 
@@ -60,11 +85,17 @@ class HelloTriangle {
     std::vector<VkPresentModeKHR> presentModes;
   };
 
+  static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
+
   void initWindow();
 
   void initVulkan();
 
   bool checkValidationLayerSupport();
+
+  static std::vector<const char *> getRequiredExtensions();
+
+  void createInstance();
 
   VkDebugUtilsMessengerCreateInfoEXT getDebugMessengerCreateInfo();
 
@@ -88,15 +119,33 @@ class HelloTriangle {
 
   static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
 
-  static VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+  static VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
 
-  VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+  VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
   void createSwapChain();
+  
+  void cleanupSwapChain();
+  
+  void recreateSwapChain();
 
-  static std::vector<const char *> getRequiredExtensions();
+  void createImageViews();
+  
+  VkShaderModule createShaderModule(const std::vector<std::byte> &code);
+  
+  void createRenderPass();
 
-  void createInstance();
+  void createGraphicsPipeline();
+
+  void createFramebuffers();
+  
+  void createCommandPool();
+
+  void createCommandBuffers();
+  
+  void createSyncObjects();
+
+  void drawFrame();
 
   void mainLoop();
 

@@ -4,7 +4,7 @@
 
 int main() {
   spdlog::set_level(spdlog::level::debug);
-  spdlog::stdout_color_mt("console");
+  spdlog::stdout_color_mt("validation_layer");
 
   HelloTriangle app;
 
