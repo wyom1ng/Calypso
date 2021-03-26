@@ -562,8 +562,8 @@ void HelloTriangle::createRenderPass() {
 }
 
 void HelloTriangle::createGraphicsPipeline() {
-  auto vert_shader_code = util::File::readFile(std::filesystem::path(ROOT_DIRECTORY) / "shaders/compiled/vert.spv");
-  auto frag_shader_code = util::File::readFile(std::filesystem::path(ROOT_DIRECTORY) / "shaders/compiled/frag.spv");
+  auto vert_shader_code = util::File::readFile(std::filesystem::path(ROOT_DIRECTORY) / "shaders/compiled/triangle.vert.spv");
+  auto frag_shader_code = util::File::readFile(std::filesystem::path(ROOT_DIRECTORY) / "shaders/compiled/triangle.frag.spv");
 
   vk::ShaderModule vert_shader_module = createShaderModule(vert_shader_code);
   vk::ShaderModule frag_shader_module = createShaderModule(frag_shader_code);
