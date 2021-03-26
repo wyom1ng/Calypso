@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_compile_definitions(ROOT_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
 
-add_executable(${PROJECT_NAME} src/main.cpp src/hello_triangle.cpp src/hello_triangle.h src/util/vulkan.cpp src/util/vulkan.h src/util/file.cpp src/util/file.h)
+add_executable(${PROJECT_NAME} src/main.cpp src/hello_triangle.cpp src/hello_triangle.h src/util/file.cpp src/util/file.h)
 
 ### glfw ###############################################################################################################
 
@@ -43,6 +43,7 @@ elseif(UNIX)
     endif()
 endif()
 
+target_compile_definitions(Vulkan::Vulkan INTERFACE VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)
 target_link_libraries(${PROJECT_NAME} PUBLIC Vulkan::Vulkan)
 
 ########################################################################################################################

@@ -2,6 +2,8 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <iostream>
 
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+
 int main() {
   spdlog::set_level(spdlog::level::debug);
   spdlog::stdout_color_mt("validation_layer");
@@ -9,7 +11,7 @@ int main() {
   HelloTriangle app;
 
   try {
-    app.run();
+    app.mainloop();
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
     return EXIT_FAILURE;

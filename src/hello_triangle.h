@@ -17,18 +17,17 @@
 
 class HelloTriangle {
  public:
-  void run() {
-    initWindow();
-    initVulkan();
-    mainLoop();
-    cleanup();
-  }
+  HelloTriangle();
 
+  void mainloop();
+  
+  ~HelloTriangle();
+  
  private:
   const std::vector<const char *> validationLayers_ = {"VK_LAYER_KHRONOS_validation"};
   const std::vector<const char *> deviceExtensions_ = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
-  VkDebugUtilsMessengerEXT debugMessenger_;
+  vk::DebugUtilsMessengerEXT debugMessenger_;
 
 #ifdef NDEBUG
   static constexpr ENABLE_VALIDATION_LAYERS = false;
@@ -38,34 +37,36 @@ class HelloTriangle {
 
   static constexpr int MAX_FRAMES_IN_FLIGHT = 5;
 
+  vk::DynamicLoader dynamicLoader_;
+
   GLFWwindow *window_;
-  VkInstance instance_;
-  VkPhysicalDevice physicalDevice_ = VK_NULL_HANDLE;
-  VkDevice device_;
+  vk::Instance instance_;
+  vk::PhysicalDevice physicalDevice_;
+  vk::Device device_;
 
-  VkQueue graphicsQueue_;
-  VkQueue presentQueue_;
-  VkSurfaceKHR surface_;
+  vk::Queue graphicsQueue_;
+  vk::Queue presentQueue_;
+  vk::SurfaceKHR surface_;
 
-  VkSwapchainKHR swapChain_;
-  std::vector<VkImage> swapChainImages_;
-  VkFormat swapChainImageFormat_;
-  VkExtent2D swapChainExtent_;
+  vk::SwapchainKHR swapChain_;
+  std::vector<vk::Image> swapChainImages_;
+  vk::Format swapChainImageFormat_;
+  vk::Extent2D swapChainExtent_;
   
-  std::vector<VkImageView> swapChainImageViews_;
-  std::vector<VkFramebuffer> swapChainFramebuffers_;
+  std::vector<vk::ImageView> swapChainImageViews_;
+  std::vector<vk::Framebuffer> swapChainFramebuffers_;
   
-  VkRenderPass renderPass_;
-  VkPipelineLayout pipelineLayout_;
-  VkPipeline graphicsPipeline_;
+  vk::RenderPass renderPass_;
+  vk::PipelineLayout pipelineLayout_;
+  vk::Pipeline graphicsPipeline_;
 
-  VkCommandPool commandPool_;
-  std::vector<VkCommandBuffer> commandBuffers_;
+  vk::CommandPool commandPool_;
+  std::vector<vk::CommandBuffer> commandBuffers_;
 
-  std::vector<VkSemaphore> imageAvailableSemaphores_ = std::vector<VkSemaphore>(MAX_FRAMES_IN_FLIGHT);
-  std::vector<VkSemaphore> renderFinishedSemaphores_ = std::vector<VkSemaphore>(MAX_FRAMES_IN_FLIGHT);
-  std::vector<VkFence> inFlightFences_ = std::vector<VkFence>(MAX_FRAMES_IN_FLIGHT);
-  std::vector<VkFence> imagesInFlight_;
+  std::vector<vk::Semaphore> imageAvailableSemaphores_ = std::vector<vk::Semaphore>(MAX_FRAMES_IN_FLIGHT);
+  std::vector<vk::Semaphore> renderFinishedSemaphores_ = std::vector<vk::Semaphore>(MAX_FRAMES_IN_FLIGHT);
+  std::vector<vk::Fence> inFlightFences_ = std::vector<vk::Fence>(MAX_FRAMES_IN_FLIGHT);
+  std::vector<vk::Fence> imagesInFlight_;
   std::size_t currentFrame_ = 0;
   bool framebufferResized_ = false;
   
@@ -80,10 +81,12 @@ class HelloTriangle {
   };
 
   struct SwapChainSupportDetails {
-    VkSurfaceCapabilitiesKHR capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
+    vk::SurfaceCapabilitiesKHR capabilities;
+    std::vector<vk::SurfaceFormatKHR> formats;
+    std::vector<vk::PresentModeKHR> presentModes;
   };
+  
+  void initDispatchLoader();
 
   static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 
@@ -97,31 +100,31 @@ class HelloTriangle {
 
   void createInstance();
 
-  VkDebugUtilsMessengerCreateInfoEXT getDebugMessengerCreateInfo();
+  static vk::DebugUtilsMessengerCreateInfoEXT getDebugMessengerCreateInfo();
 
-  static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                                      VkDebugUtilsMessageTypeFlagsEXT messageType,
+  static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                                                        VkDebugUtilsMessageTypeFlagsEXT messageType,
                                                       const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData);
 
   void setupDebugMessenger();
 
   void createSurface();
 
-  QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+  QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
 
-  SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+  SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device);
 
   void pickPhysicalDevice();
 
-  bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+  bool checkDeviceExtensionSupport(vk::PhysicalDevice device);
 
   void createLogicalDevice();
 
-  static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
+  static vk::SurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats);
 
-  static VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
+  static vk::PresentModeKHR chooseSwapPresentMode(const std::vector<vk::PresentModeKHR> &availablePresentModes);
 
-  VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
+  vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR &capabilities);
 
   void createSwapChain();
   
@@ -131,7 +134,7 @@ class HelloTriangle {
 
   void createImageViews();
   
-  VkShaderModule createShaderModule(const std::vector<std::byte> &code);
+  vk::ShaderModule createShaderModule(const std::vector<std::byte> &code);
   
   void createRenderPass();
 
@@ -146,10 +149,6 @@ class HelloTriangle {
   void createSyncObjects();
 
   void drawFrame();
-
-  void mainLoop();
-
-  void cleanup();
 };
 
 #endif  // CALYPSO_HELLO_TRIANGLE_H
