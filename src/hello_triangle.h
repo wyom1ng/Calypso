@@ -15,6 +15,8 @@
 #include <glm/glm.hpp>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
+#include <vk_mem_alloc.h>
+
 #include "util/file.h"
 
 class HelloTriangle {
@@ -39,6 +41,7 @@ class HelloTriangle {
 
   static constexpr int MAX_FRAMES_IN_FLIGHT = 5;
 
+  VmaAllocator allocator_;
   vk::DynamicLoader dynamicLoader_;
 
   GLFWwindow *window_;
@@ -128,7 +131,7 @@ class HelloTriangle {
   };
 
   vk::Buffer vertexBuffer_;
-  vk::DeviceMemory vertexBufferMemory_;
+  VmaAllocation vertexBufferAllocation_;
 
   void initDispatchLoader();
 
@@ -190,9 +193,7 @@ class HelloTriangle {
 
   void createCommandPools();
 
-  uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
-  
-  vk::Buffer createBuffer(vk::DeviceSize size,  vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::DeviceMemory &bufferMemory);
+  vk::Buffer createBuffer(vk::DeviceSize size,  vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, VmaAllocation &allocation);
 
   void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size);
   

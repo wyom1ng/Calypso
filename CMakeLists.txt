@@ -44,7 +44,7 @@ elseif(UNIX)
     endif()
 endif()
 
-target_compile_definitions(Vulkan::Vulkan INTERFACE VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)
+target_compile_definitions(Vulkan::Vulkan INTERFACE VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1 VULKAN_HPP_FLAGS_MASK_TYPE_AS_PUBLIC)
 target_link_libraries(${PROJECT_NAME} PUBLIC Vulkan::Vulkan)
 
 ########################################################################################################################

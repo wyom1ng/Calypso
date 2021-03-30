@@ -22,8 +22,8 @@ void HelloTriangle::mainloop() {
 HelloTriangle::~HelloTriangle() {
   cleanupSwapChain();
 
-  device_.destroyBuffer(vertexBuffer_, nullptr);
-  device_.freeMemory(vertexBufferMemory_, nullptr);
+  vmaDestroyBuffer(allocator_, vertexBuffer_, vertexBufferAllocation_);
+  vmaDestroyAllocator(allocator_);
 
   for (std::size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     device_.destroySemaphore(renderFinishedSemaphores_[i], nullptr);
@@ -72,6 +72,7 @@ void HelloTriangle::initVulkan() {
   createSurface();
   pickPhysicalDevice();
   createLogicalDevice();
+  createAllocator();
   createSwapChain();
   createImageViews();
   createRenderPass();
@@ -352,6 +353,16 @@ void HelloTriangle::createLogicalDevice() {
   graphicsQueue_ = device_.getQueue(indices.graphicsFamily.value(), 0);
   presentQueue_ = device_.getQueue(indices.presentFamily.value(), 0);
   transferQueue_ = device_.getQueue(indices.transferFamily.value(), 0);
+}
+
+void HelloTriangle::createAllocator() {
+  VmaAllocatorCreateInfo allocator_info = {};
+  allocator_info.vulkanApiVersion = VK_API_VERSION_1_2;
+  allocator_info.physicalDevice = physicalDevice_;
+  allocator_info.device = device_;
+  allocator_info.instance = instance_;
+
+  vmaCreateAllocator(&allocator_info, &allocator_);
 }
 
 vk::SurfaceFormatKHR HelloTriangle::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats) {
@@ -753,42 +764,18 @@ void HelloTriangle::createCommandPools() {
   }
 }
 
-uint32_t HelloTriangle::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) {
-  auto memory_properties = physicalDevice_.getMemoryProperties();
-
-  for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++) {
-    if (((typeFilter & (1 << i)) != 0u) && (memory_properties.memoryTypes[i].propertyFlags & properties) == properties) {
-      return i;
-    }
-  }
-
-  throw std::runtime_error("failed to find suitable memory type!");
-}
-
 vk::Buffer HelloTriangle::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-                                       vk::DeviceMemory &bufferMemory) {
-  vk::BufferCreateInfo buffer_info = {};
+                                       VmaAllocation &allocation) {
+  VkBufferCreateInfo buffer_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
   buffer_info.size = size;
-  buffer_info.usage = usage;
-  buffer_info.sharingMode = vk::SharingMode::eExclusive;
+  buffer_info.usage = usage.m_mask;
 
-  vk::Buffer buffer;
-  if (device_.createBuffer(&buffer_info, nullptr, &buffer) != vk::Result::eSuccess) {
-    throw std::runtime_error("failed to create buffer!");
-  }
-  
-  vk::MemoryRequirements memory_requirements;
-  memory_requirements = device_.getBufferMemoryRequirements(buffer);
+  VmaAllocationCreateInfo alloc_info = {};
+  alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+  alloc_info.requiredFlags = properties.m_mask;
 
-  vk::MemoryAllocateInfo alloc_info = {};
-  alloc_info.allocationSize = memory_requirements.size;
-  alloc_info.memoryTypeIndex = findMemoryType(memory_requirements.memoryTypeBits, properties);
-
-  if (device_.allocateMemory(&alloc_info, nullptr, &bufferMemory) != vk::Result::eSuccess) {
-    throw std::runtime_error("failed to allocate buffer memory!");
-  }
-
-  vkBindBufferMemory(device_, buffer, bufferMemory, 0);
+  VkBuffer buffer;
+  vmaCreateBuffer(allocator_, &buffer_info, &alloc_info, &buffer, &allocation, nullptr);
 
   return buffer;
 }
@@ -832,25 +819,24 @@ void HelloTriangle::copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::D
 void HelloTriangle::createVertexBuffer() {
   vk::DeviceSize buffer_size = sizeof(Vertex) * vertices_.size();
 
-  vk::DeviceMemory staging_buffer_memory;
+  VmaAllocation staging_buffer_allocation;
   auto staging_buffer =
       createBuffer(buffer_size, vk::BufferUsageFlagBits::eTransferSrc,
-                   vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, staging_buffer_memory);
+                   vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, staging_buffer_allocation);
 
   void *data;
-  if (device_.mapMemory(staging_buffer_memory, 0, buffer_size, {}, &data) != vk::Result::eSuccess) {
+  if (vmaMapMemory(allocator_, staging_buffer_allocation, &data) != VK_SUCCESS) {
     throw std::runtime_error("failed to map vertex buffer memory!");
   }
   std::memcpy(data, vertices_.data(), buffer_size);
-  device_.unmapMemory(staging_buffer_memory);
+  vmaUnmapMemory(allocator_, staging_buffer_allocation);
 
   vertexBuffer_ = createBuffer(buffer_size, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
-                               vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBufferMemory_);
+                               vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBufferAllocation_);
 
   copyBuffer(staging_buffer, vertexBuffer_, buffer_size);
 
-  device_.destroyBuffer(staging_buffer, nullptr);
-  device_.freeMemory(staging_buffer_memory, nullptr);
+  vmaDestroyBuffer(allocator_, staging_buffer, staging_buffer_allocation);
 }
 
 void HelloTriangle::createCommandBuffers() {
