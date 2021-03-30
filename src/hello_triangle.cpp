@@ -22,13 +22,17 @@ void HelloTriangle::mainloop() {
 HelloTriangle::~HelloTriangle() {
   cleanupSwapChain();
 
+  device_.destroyBuffer(vertexBuffer_, nullptr);
+  device_.freeMemory(vertexBufferMemory_, nullptr);
+
   for (std::size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     device_.destroySemaphore(renderFinishedSemaphores_[i], nullptr);
     device_.destroySemaphore(imageAvailableSemaphores_[i], nullptr);
     device_.destroyFence(inFlightFences_[i], nullptr);
   }
 
-  device_.destroyCommandPool(commandPool_, nullptr);
+  device_.destroyCommandPool(graphicsCommandPool_, nullptr);
+  device_.destroyCommandPool(transferCommandPool_, nullptr);
   device_.destroy(nullptr);
 
   if (ENABLE_VALIDATION_LAYERS) {
@@ -73,7 +77,8 @@ void HelloTriangle::initVulkan() {
   createRenderPass();
   createGraphicsPipeline();
   createFramebuffers();
-  createCommandPool();
+  createCommandPools();
+  createVertexBuffer();
   createCommandBuffers();
   createSyncObjects();
 }
@@ -168,6 +173,8 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL HelloTriangle::debugCallback(VkDebugUtilsMessag
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
       logger->error(pCallbackData->pMessage);
       break;
+    default:
+      break;  // can't happen
   }
 
   return VK_FALSE;
@@ -205,6 +212,10 @@ HelloTriangle::QueueFamilyIndices HelloTriangle::findQueueFamilies(vk::PhysicalD
   for (const auto &queue_family : queue_families) {
     if (queue_family.queueFlags & vk::QueueFlagBits::eGraphics) {
       indices.graphicsFamily = i;
+    }
+
+    if (queue_family.queueFlags & vk::QueueFlagBits::eTransfer && !(queue_family.queueFlags & vk::QueueFlagBits::eGraphics)) {
+      indices.transferFamily = i;
     }
 
     auto present_support = device.getSurfaceSupportKHR(i, surface_);
@@ -309,7 +320,8 @@ void HelloTriangle::createLogicalDevice() {
   QueueFamilyIndices indices = findQueueFamilies(physicalDevice_);
 
   std::vector<vk::DeviceQueueCreateInfo> queue_create_infos;
-  std::set<uint32_t> unique_queue_families = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+  std::set<uint32_t> unique_queue_families = {indices.graphicsFamily.value(), indices.presentFamily.value(),
+                                              indices.transferFamily.value()};
 
   float queue_priority = 1.0f;
   for (uint32_t queue_family : unique_queue_families) {
@@ -319,12 +331,6 @@ void HelloTriangle::createLogicalDevice() {
     queue_create_info.pQueuePriorities = &queue_priority;
     queue_create_infos.emplace_back(queue_create_info);
   }
-
-  vk::DeviceQueueCreateInfo queue_create_info;
-  queue_create_info.queueFamilyIndex = indices.graphicsFamily.value();
-  queue_create_info.queueCount = 1;
-
-  queue_create_info.pQueuePriorities = &queue_priority;
 
   vk::PhysicalDeviceFeatures device_features;
   vk::DeviceCreateInfo create_info;
@@ -345,6 +351,7 @@ void HelloTriangle::createLogicalDevice() {
 
   graphicsQueue_ = device_.getQueue(indices.graphicsFamily.value(), 0);
   presentQueue_ = device_.getQueue(indices.presentFamily.value(), 0);
+  transferQueue_ = device_.getQueue(indices.transferFamily.value(), 0);
 }
 
 vk::SurfaceFormatKHR HelloTriangle::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats) {
@@ -404,15 +411,13 @@ void HelloTriangle::createSwapChain() {
   create_info.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
 
   QueueFamilyIndices indices = findQueueFamilies(physicalDevice_);
-  uint32_t queue_family_indices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+  std::set<uint32_t> all_queue_family_indices = {indices.graphicsFamily.value(), indices.presentFamily.value(),
+                                                indices.transferFamily.value()};
+  std::vector<uint32_t> queue_family_indices(all_queue_family_indices.size());
+  queue_family_indices.assign(all_queue_family_indices.begin(), all_queue_family_indices.end());
 
-  if (indices.graphicsFamily != indices.presentFamily) {
-    create_info.imageSharingMode = vk::SharingMode::eConcurrent;
-    create_info.queueFamilyIndexCount = 2;
-    create_info.pQueueFamilyIndices = queue_family_indices;
-  } else {
-    create_info.imageSharingMode = vk::SharingMode::eExclusive;
-  }
+  create_info.imageSharingMode = vk::SharingMode::eConcurrent;
+  create_info.setQueueFamilyIndices(queue_family_indices);
 
   create_info.preTransform = swap_chain_support.capabilities.currentTransform;
   create_info.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
@@ -436,7 +441,7 @@ void HelloTriangle::createSwapChain() {
 void HelloTriangle::cleanupSwapChain() {
   for (auto &framebuffer : swapChainFramebuffers_) device_.destroyFramebuffer(framebuffer, nullptr);
 
-  device_.freeCommandBuffers(commandPool_, commandBuffers_);
+  device_.freeCommandBuffers(graphicsCommandPool_, graphicsCommandBuffers_);
 
   device_.destroyPipeline(graphicsPipeline_, nullptr);
   device_.destroyPipelineLayout(pipelineLayout_, nullptr);
@@ -583,11 +588,12 @@ void HelloTriangle::createGraphicsPipeline() {
   constexpr uint32_t N_SHADER_STAGES = 2;
   vk::PipelineShaderStageCreateInfo shader_stages[N_SHADER_STAGES] = {vert_shader_stage_info, frag_shader_stage_info};
 
+  auto binding_description = Vertex::getBindingDescription();
+  auto attribute_descriptions = Vertex::getAttributeDescriptions();
+
   vk::PipelineVertexInputStateCreateInfo vertex_input_info;
-  vertex_input_info.vertexBindingDescriptionCount = 0;
-  vertex_input_info.pVertexBindingDescriptions = nullptr;
-  vertex_input_info.vertexAttributeDescriptionCount = 0;
-  vertex_input_info.pVertexAttributeDescriptions = nullptr;
+  vertex_input_info.setVertexBindingDescriptions(binding_description);
+  vertex_input_info.setVertexAttributeDescriptions(attribute_descriptions);
 
   vk::PipelineInputAssemblyStateCreateInfo input_assembly;
   input_assembly.topology = vk::PrimitiveTopology::eTriangleList;
@@ -727,32 +733,140 @@ void HelloTriangle::createFramebuffers() {
   }
 }
 
-void HelloTriangle::createCommandPool() {
+void HelloTriangle::createCommandPools() {
   QueueFamilyIndices queue_family_indices = findQueueFamilies(physicalDevice_);
 
-  vk::CommandPoolCreateInfo pool_info;
-  pool_info.queueFamilyIndex = queue_family_indices.graphicsFamily.value();
-  pool_info.flags = {};
+  vk::CommandPoolCreateInfo graphics_pool_info;
+  graphics_pool_info.queueFamilyIndex = queue_family_indices.graphicsFamily.value();
+  graphics_pool_info.flags = {};
 
-  if (device_.createCommandPool(&pool_info, nullptr, &commandPool_) != vk::Result::eSuccess) {
-    throw std::runtime_error("failed to create command pool!");
+  if (device_.createCommandPool(&graphics_pool_info, nullptr, &graphicsCommandPool_) != vk::Result::eSuccess) {
+    throw std::runtime_error("failed to create graphics command pool!");
+  }
+
+  vk::CommandPoolCreateInfo transfer_pool_info;
+  transfer_pool_info.queueFamilyIndex = queue_family_indices.transferFamily.value();
+  transfer_pool_info.flags = {};
+
+  if (device_.createCommandPool(&transfer_pool_info, nullptr, &transferCommandPool_) != vk::Result::eSuccess) {
+    throw std::runtime_error("failed to create transfer command pool!");
   }
 }
 
+uint32_t HelloTriangle::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) {
+  auto memory_properties = physicalDevice_.getMemoryProperties();
+
+  for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++) {
+    if (((typeFilter & (1 << i)) != 0u) && (memory_properties.memoryTypes[i].propertyFlags & properties) == properties) {
+      return i;
+    }
+  }
+
+  throw std::runtime_error("failed to find suitable memory type!");
+}
+
+vk::Buffer HelloTriangle::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
+                                       vk::DeviceMemory &bufferMemory) {
+  vk::BufferCreateInfo buffer_info = {};
+  buffer_info.size = size;
+  buffer_info.usage = usage;
+  buffer_info.sharingMode = vk::SharingMode::eExclusive;
+
+  vk::Buffer buffer;
+  if (device_.createBuffer(&buffer_info, nullptr, &buffer) != vk::Result::eSuccess) {
+    throw std::runtime_error("failed to create buffer!");
+  }
+  
+  vk::MemoryRequirements memory_requirements;
+  memory_requirements = device_.getBufferMemoryRequirements(buffer);
+
+  vk::MemoryAllocateInfo alloc_info = {};
+  alloc_info.allocationSize = memory_requirements.size;
+  alloc_info.memoryTypeIndex = findMemoryType(memory_requirements.memoryTypeBits, properties);
+
+  if (device_.allocateMemory(&alloc_info, nullptr, &bufferMemory) != vk::Result::eSuccess) {
+    throw std::runtime_error("failed to allocate buffer memory!");
+  }
+
+  vkBindBufferMemory(device_, buffer, bufferMemory, 0);
+
+  return buffer;
+}
+
+void HelloTriangle::copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size) {
+  vk::CommandBufferAllocateInfo alloc_info;
+  alloc_info.level = vk::CommandBufferLevel::ePrimary;
+  alloc_info.commandPool = transferCommandPool_;
+  alloc_info.commandBufferCount = 1;
+
+  vk::CommandBuffer command_buffer;
+  if (device_.allocateCommandBuffers(&alloc_info, &command_buffer) != vk::Result::eSuccess) {
+    throw std::runtime_error("failed to allocate command buffer!");
+  }
+
+  vk::CommandBufferBeginInfo begin_info;
+  begin_info.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+
+  if (command_buffer.begin(&begin_info) != vk::Result::eSuccess) {
+    throw std::runtime_error("failed to begin command buffer!");
+  }
+
+  vk::BufferCopy copy_region;
+  copy_region.srcOffset = 0;
+  copy_region.dstOffset = 0;
+  copy_region.size = size;
+
+  command_buffer.copyBuffer(srcBuffer, dstBuffer, 1, &copy_region);
+
+  command_buffer.end();
+
+  vk::SubmitInfo submit_info;
+  submit_info.setCommandBuffers(command_buffer);
+
+  transferQueue_.submit(submit_info, nullptr);
+  transferQueue_.waitIdle();
+
+  device_.freeCommandBuffers(transferCommandPool_, command_buffer);
+}
+
+void HelloTriangle::createVertexBuffer() {
+  vk::DeviceSize buffer_size = sizeof(Vertex) * vertices_.size();
+
+  vk::DeviceMemory staging_buffer_memory;
+  auto staging_buffer =
+      createBuffer(buffer_size, vk::BufferUsageFlagBits::eTransferSrc,
+                   vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, staging_buffer_memory);
+
+  void *data;
+  if (device_.mapMemory(staging_buffer_memory, 0, buffer_size, {}, &data) != vk::Result::eSuccess) {
+    throw std::runtime_error("failed to map vertex buffer memory!");
+  }
+  std::memcpy(data, vertices_.data(), buffer_size);
+  device_.unmapMemory(staging_buffer_memory);
+
+  vertexBuffer_ = createBuffer(buffer_size, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+                               vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBufferMemory_);
+
+  copyBuffer(staging_buffer, vertexBuffer_, buffer_size);
+
+  device_.destroyBuffer(staging_buffer, nullptr);
+  device_.freeMemory(staging_buffer_memory, nullptr);
+}
+
 void HelloTriangle::createCommandBuffers() {
-  commandBuffers_.resize(swapChainFramebuffers_.size());
+  graphicsCommandBuffers_.resize(swapChainFramebuffers_.size());
 
   vk::CommandBufferAllocateInfo alloc_info;
-  alloc_info.commandPool = commandPool_;
+  alloc_info.commandPool = graphicsCommandPool_;
   alloc_info.level = vk::CommandBufferLevel::ePrimary;
-  alloc_info.commandBufferCount = static_cast<uint32_t>(commandBuffers_.size());
+  alloc_info.commandBufferCount = static_cast<uint32_t>(graphicsCommandBuffers_.size());
 
-  if (device_.allocateCommandBuffers(&alloc_info, commandBuffers_.data()) != vk::Result::eSuccess) {
+  if (device_.allocateCommandBuffers(&alloc_info, graphicsCommandBuffers_.data()) != vk::Result::eSuccess) {
     throw std::runtime_error("failed to allocate command buffers!");
   }
 
   std::size_t i = 0;
-  for (auto &command_buffer : commandBuffers_) {
+  for (auto &command_buffer : graphicsCommandBuffers_) {
     vk::CommandBufferBeginInfo begin_info;
     begin_info.flags = {};
     begin_info.pInheritanceInfo = nullptr;
@@ -777,7 +891,11 @@ void HelloTriangle::createCommandBuffers() {
     command_buffer.beginRenderPass(&render_pass_info, vk::SubpassContents::eInline);
     {
       command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline_);
-      command_buffer.draw(3, 1, 0, 0);
+
+      vk::DeviceSize offset = 0;
+      graphicsCommandBuffers_[i].bindVertexBuffers(0, vertexBuffer_, offset);
+
+      command_buffer.draw(vertices_.size(), 1, 0, 0);
     }
     command_buffer.endRenderPass();
 
@@ -806,7 +924,7 @@ void HelloTriangle::createSyncObjects() {
 void HelloTriangle::drawFrame() {
   if (device_.waitForFences(1, &inFlightFences_[currentFrame_], VK_TRUE, UINT64_MAX) != vk::Result::eSuccess) {
     throw std::runtime_error("wait for fences timed out");
-  };
+  }
 
   uint32_t image_index;
   vk::Result result = device_.acquireNextImageKHR(swapChain_, UINT64_MAX, imageAvailableSemaphores_[currentFrame_], nullptr, &image_index);
@@ -838,7 +956,7 @@ void HelloTriangle::drawFrame() {
   submit_info.pWaitDstStageMask = wait_stages;
 
   submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &commandBuffers_[image_index];
+  submit_info.pCommandBuffers = &graphicsCommandBuffers_[image_index];
 
   constexpr uint32_t N_SIGNAL_SEMAPHORES = 1;
   vk::Semaphore signal_semaphores[N_SIGNAL_SEMAPHORES] = {renderFinishedSemaphores_[currentFrame_]};

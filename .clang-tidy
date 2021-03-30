@@ -43,7 +43,7 @@ Checks: >
   -readability-magic-numbers,
   -readability-named-parameter,
   -readability-redundant-declaration,
-  -readability-uppercase-literal-suffix
+  -readability-uppercase-literal-suffix,
 
 # Turn all the warnings from the checks above into errors.
 WarningsAsErrors: "*"

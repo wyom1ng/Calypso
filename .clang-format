@@ -12,9 +12,9 @@ PointerAlignment: Right
 IncludeBlocks: Merge
 IncludeCategories:
   # Matches common headers first, but sorts them after project includes
-  - Regex: '^\"'
+  - Regex: '^<[^/]*>'
     Priority: 1500
   - Regex: '^<.*/.*'
     Priority: 4000
-  - Regex: '^<[^/]*>'
+  - Regex: '^\"'
     Priority: 5000

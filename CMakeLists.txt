@@ -2,6 +2,7 @@
 project(Calypso)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 add_compile_definitions(ROOT_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -50,5 +51,10 @@ target_link_libraries(${PROJECT_NAME} PUBLIC Vulkan::Vulkan)
 ### spdlog #############################################################################################################
 
 include_directories(lib/spdlog/include)
+
+########################################################################################################################
+### vma ################################################################################################################
+
+include_directories(lib/VulkanMemoryAllocator/src)
 
 ########################################################################################################################
