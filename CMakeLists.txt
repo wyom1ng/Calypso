@@ -6,7 +6,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 add_compile_definitions(ROOT_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
 
-add_executable(${PROJECT_NAME} src/main.cpp src/hello_triangle.cpp src/hello_triangle.h src/util/file.cpp src/util/file.h)
+add_executable(${PROJECT_NAME}
+        src/main.cpp
+        src/hello_triangle.cpp
+        src/hello_triangle.h
+        src/util/file.cpp
+        src/util/file.h src/thirdparty.cpp)
 
 ### glfw ###############################################################################################################
 
@@ -56,5 +61,10 @@ include_directories(lib/spdlog/include)
 ### vma ################################################################################################################
 
 include_directories(lib/VulkanMemoryAllocator/src)
+
+########################################################################################################################
+### stb ################################################################################################################
+
+include_directories(lib/stb)
 
 ########################################################################################################################

@@ -1,7 +1,4 @@
-﻿#define VMA_IMPLEMENTATION
-#include <vk_mem_alloc.h>
-
-#include "hello_triangle.h"
+﻿#include "hello_triangle.h"
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <iostream>
 

@@ -16,6 +16,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <stb_image.h>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
@@ -42,7 +43,7 @@ class HelloTriangle {
   static constexpr bool ENABLE_VALIDATION_LAYERS = true;
 #endif
 
-  static constexpr int MAX_FRAMES_IN_FLIGHT = 5;
+  static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
   
   std::chrono::high_resolution_clock::time_point startTime_;
 
@@ -144,9 +145,9 @@ class HelloTriangle {
   };
 
   struct UniformBufferObject {
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
+    alignas(16) glm::mat4 model;
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
   };
 
   vk::Buffer vertexBuffer_;
@@ -155,6 +156,8 @@ class HelloTriangle {
   VmaAllocation indexBufferAllocation_;
   std::vector<vk::Buffer> uniformBuffers_;
   std::vector<VmaAllocation> uniformBuffersAllocation_;
+  vk::Image textureImage_;
+  VmaAllocation textureImageAllocation_;
 
   void initDispatchLoader();
 
@@ -217,6 +220,10 @@ class HelloTriangle {
   void createFramebuffers();
 
   void createCommandPools();
+  
+  [[nodiscard]] vk::CommandBuffer beginSingleTimeCommands(const vk::CommandPool &commandPool) const;
+  
+  void endSingleTimeCommands(vk::CommandBuffer &commandBuffer, const vk::Queue &queue, const vk::CommandPool &commandPool) const;
 
   vk::Buffer createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, VmaAllocation &allocation) const;
   
@@ -224,6 +231,14 @@ class HelloTriangle {
 
   vk::Buffer createBufferWithStaging(vk::DeviceSize size, const void *data, VmaAllocation &bufferAllocation, vk::BufferUsageFlagBits usage);
 
+  vk::Image createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, VmaAllocation &imageAllocation);
+  
+  void transitionImageLayout(vk::Image &image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
+
+  void copyBufferToImage(vk::Buffer &buffer, vk::Image &image, uint32_t width, uint32_t height);
+  
+  void createTextureImage();
+  
   void createVertexBuffer();
   
   void createIndexBuffer();
