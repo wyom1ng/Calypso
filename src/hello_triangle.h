@@ -11,8 +11,11 @@
 #include <set>
 #include <stdexcept>
 #include <vector>
+#include <chrono>
+
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
@@ -40,6 +43,8 @@ class HelloTriangle {
 #endif
 
   static constexpr int MAX_FRAMES_IN_FLIGHT = 5;
+  
+  std::chrono::high_resolution_clock::time_point startTime_;
 
   VmaAllocator allocator_;
   vk::DynamicLoader dynamicLoader_;
@@ -63,6 +68,11 @@ class HelloTriangle {
   std::vector<vk::Framebuffer> swapChainFramebuffers_;
 
   vk::RenderPass renderPass_;
+
+  vk::DescriptorSetLayout descriptorSetLayout_;
+  vk::DescriptorPool descriptorPool_;
+  std::vector<vk::DescriptorSet> descriptorSets_;
+  
   vk::PipelineLayout pipelineLayout_;
   vk::Pipeline graphicsPipeline_;
 
@@ -133,10 +143,18 @@ class HelloTriangle {
       0, 1, 2, 2, 3, 0,
   };
 
+  struct UniformBufferObject {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+  };
+
   vk::Buffer vertexBuffer_;
   VmaAllocation vertexBufferAllocation_;
   vk::Buffer indexBuffer_;
   VmaAllocation indexBufferAllocation_;
+  std::vector<vk::Buffer> uniformBuffers_;
+  std::vector<VmaAllocation> uniformBuffersAllocation_;
 
   void initDispatchLoader();
 
@@ -192,6 +210,8 @@ class HelloTriangle {
 
   void createRenderPass();
 
+  void createDescriptorSetLayout();
+
   void createGraphicsPipeline();
 
   void createFramebuffers();
@@ -202,16 +222,23 @@ class HelloTriangle {
   
   void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size) const;
 
-  template <typename T>
-  vk::Buffer createVkBuffer(T &data, VmaAllocation &bufferAllocation, vk::BufferUsageFlagBits usage);
+  vk::Buffer createBufferWithStaging(vk::DeviceSize size, const void *data, VmaAllocation &bufferAllocation, vk::BufferUsageFlagBits usage);
 
   void createVertexBuffer();
   
   void createIndexBuffer();
+  
+  void createUniformBuffers();
+
+  void createDescriptorPool();
+  
+  void createDescriptorSets();
 
   void createCommandBuffers();
 
   void createSyncObjects();
+
+  void updateUniformBuffer(uint32_t currentImage);
 
   void drawFrame();
 };
