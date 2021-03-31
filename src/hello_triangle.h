@@ -124,14 +124,19 @@ class HelloTriangle {
     }
   };
 
-  const std::vector<Vertex> vertices_ = {
-      {{0.0f, -0.5f}, {1.0f, 0.0f, 1.0f}},
-      {{0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},
-      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+  const std::vector<Vertex> vertices_ = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                                         {{0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}},
+                                         {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+                                         {{-0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}}};
+
+  const std::vector<uint16_t> indices_ = {
+      0, 1, 2, 2, 3, 0,
   };
 
   vk::Buffer vertexBuffer_;
   VmaAllocation vertexBufferAllocation_;
+  vk::Buffer indexBuffer_;
+  VmaAllocation indexBufferAllocation_;
 
   void initDispatchLoader();
 
@@ -193,11 +198,16 @@ class HelloTriangle {
 
   void createCommandPools();
 
-  vk::Buffer createBuffer(vk::DeviceSize size,  vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, VmaAllocation &allocation);
-
-  void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size);
+  vk::Buffer createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, VmaAllocation &allocation) const;
   
+  void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size) const;
+
+  template <typename T>
+  vk::Buffer createVkBuffer(T &data, VmaAllocation &bufferAllocation, vk::BufferUsageFlagBits usage);
+
   void createVertexBuffer();
+  
+  void createIndexBuffer();
 
   void createCommandBuffers();
 

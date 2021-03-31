@@ -23,6 +23,7 @@ HelloTriangle::~HelloTriangle() {
   cleanupSwapChain();
 
   vmaDestroyBuffer(allocator_, vertexBuffer_, vertexBufferAllocation_);
+  vmaDestroyBuffer(allocator_, indexBuffer_, indexBufferAllocation_);
   vmaDestroyAllocator(allocator_);
 
   for (std::size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -80,6 +81,7 @@ void HelloTriangle::initVulkan() {
   createFramebuffers();
   createCommandPools();
   createVertexBuffer();
+  createIndexBuffer();
   createCommandBuffers();
   createSyncObjects();
 }
@@ -184,8 +186,8 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL HelloTriangle::debugCallback(VkDebugUtilsMessag
 vk::DebugUtilsMessengerCreateInfoEXT HelloTriangle::getDebugMessengerCreateInfo() {
   vk::DebugUtilsMessengerCreateInfoEXT create_info;
 
-  create_info.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
-                                vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+  create_info.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                                vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
   create_info.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
                             vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation;
   create_info.pfnUserCallback = debugCallback;
@@ -765,7 +767,7 @@ void HelloTriangle::createCommandPools() {
 }
 
 vk::Buffer HelloTriangle::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties,
-                                       VmaAllocation &allocation) {
+                                       VmaAllocation &allocation) const {
   VkBufferCreateInfo buffer_info = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
   buffer_info.size = size;
   buffer_info.usage = usage.m_mask;
@@ -780,7 +782,7 @@ vk::Buffer HelloTriangle::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags
   return buffer;
 }
 
-void HelloTriangle::copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size) {
+void HelloTriangle::copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size) const {
   vk::CommandBufferAllocateInfo alloc_info;
   alloc_info.level = vk::CommandBufferLevel::ePrimary;
   alloc_info.commandPool = transferCommandPool_;
@@ -816,27 +818,39 @@ void HelloTriangle::copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::D
   device_.freeCommandBuffers(transferCommandPool_, command_buffer);
 }
 
-void HelloTriangle::createVertexBuffer() {
-  vk::DeviceSize buffer_size = sizeof(Vertex) * vertices_.size();
+template <typename T>
+vk::Buffer HelloTriangle::createVkBuffer(T &data, VmaAllocation &bufferAllocation, vk::BufferUsageFlagBits usage) {
+  vk::DeviceSize buffer_size = sizeof(data[0]) * data.size();
 
   VmaAllocation staging_buffer_allocation;
   auto staging_buffer =
       createBuffer(buffer_size, vk::BufferUsageFlagBits::eTransferSrc,
                    vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, staging_buffer_allocation);
 
-  void *data;
-  if (vmaMapMemory(allocator_, staging_buffer_allocation, &data) != VK_SUCCESS) {
+  void *mapped_memory;
+  if (vmaMapMemory(allocator_, staging_buffer_allocation, &mapped_memory) != VK_SUCCESS) {
     throw std::runtime_error("failed to map vertex buffer memory!");
   }
-  std::memcpy(data, vertices_.data(), buffer_size);
+  std::memcpy(mapped_memory, data.data(), buffer_size);
   vmaUnmapMemory(allocator_, staging_buffer_allocation);
 
-  vertexBuffer_ = createBuffer(buffer_size, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
-                               vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBufferAllocation_);
+  vk::Buffer buffer;
+  buffer = createBuffer(buffer_size, vk::BufferUsageFlagBits::eTransferDst | usage,
+                               vk::MemoryPropertyFlagBits::eDeviceLocal, bufferAllocation);
 
-  copyBuffer(staging_buffer, vertexBuffer_, buffer_size);
+  copyBuffer(staging_buffer, buffer, buffer_size);
 
   vmaDestroyBuffer(allocator_, staging_buffer, staging_buffer_allocation);
+  
+  return buffer;
+}
+
+void HelloTriangle::createVertexBuffer() {
+  vertexBuffer_ = createVkBuffer(vertices_, vertexBufferAllocation_, vk::BufferUsageFlagBits::eVertexBuffer);
+}
+
+void HelloTriangle::createIndexBuffer() {
+  indexBuffer_ = createVkBuffer(indices_, indexBufferAllocation_, vk::BufferUsageFlagBits::eIndexBuffer);
 }
 
 void HelloTriangle::createCommandBuffers() {
@@ -880,6 +894,9 @@ void HelloTriangle::createCommandBuffers() {
 
       vk::DeviceSize offset = 0;
       graphicsCommandBuffers_[i].bindVertexBuffers(0, vertexBuffer_, offset);
+      graphicsCommandBuffers_[i].bindIndexBuffer(indexBuffer_, 0, vk::IndexType::eUint16);
+      
+      command_buffer.drawIndexed(indices_.size(), 1, 0, 0, 0);
 
       command_buffer.draw(vertices_.size(), 1, 0, 0);
     }
