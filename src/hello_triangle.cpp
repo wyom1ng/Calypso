@@ -28,6 +28,9 @@ HelloTriangle::~HelloTriangle() {
 
   vmaDestroyBuffer(allocator_, vertexBuffer_, vertexBufferAllocation_);
   vmaDestroyBuffer(allocator_, indexBuffer_, indexBufferAllocation_);
+
+  device_.destroyImageView(textureImageView_, nullptr);
+  device_.destroySampler(textureSampler_, nullptr);
   vmaDestroyImage(allocator_, textureImage_, textureImageAllocation_);
 
   vmaDestroyAllocator(allocator_);
@@ -88,6 +91,8 @@ void HelloTriangle::initVulkan() {
   createFramebuffers();
   createCommandPools();
   createTextureImage();
+  createTextureImageView();
+  createTextureSampler();
   createVertexBuffer();
   createIndexBuffer();
   createUniformBuffers();
@@ -285,6 +290,9 @@ void HelloTriangle::pickPhysicalDevice() {
     bool swap_chain_adequate = !swap_chain_support.formats.empty() && !swap_chain_support.presentModes.empty();
     if (!swap_chain_adequate) return 0;
 
+    auto supported_features = device.getFeatures();
+    if (!supported_features.samplerAnisotropy) return 0;
+
     int score = 0;
 
     if (device_properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
@@ -347,6 +355,8 @@ void HelloTriangle::createLogicalDevice() {
   }
 
   vk::PhysicalDeviceFeatures device_features;
+  device_features.samplerAnisotropy = VK_TRUE;
+
   vk::DeviceCreateInfo create_info;
 
   create_info.setQueueCreateInfos(queue_create_infos);
@@ -380,7 +390,7 @@ void HelloTriangle::createAllocator() {
 
 vk::SurfaceFormatKHR HelloTriangle::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats) {
   for (const auto &available_format : availableFormats) {
-    if (available_format.format == vk::Format::eB8G8R8A8Srgb && available_format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+    if (available_format.format == vk::Format::eR8G8B8A8Srgb && available_format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
       return available_format;
     }
   }
@@ -509,28 +519,7 @@ void HelloTriangle::createImageViews() {
   swapChainImageViews_.resize(swapChainImages_.size());
   std::size_t i = 0;
   for (auto &swap_chain_image : swapChainImages_) {
-    vk::ImageViewCreateInfo create_info;
-
-    create_info.image = swap_chain_image;
-
-    create_info.viewType = vk::ImageViewType::e2D;
-    create_info.format = swapChainImageFormat_;
-
-    create_info.components.r = vk::ComponentSwizzle::eIdentity;
-    create_info.components.g = vk::ComponentSwizzle::eIdentity;
-    create_info.components.b = vk::ComponentSwizzle::eIdentity;
-    create_info.components.a = vk::ComponentSwizzle::eIdentity;
-
-    create_info.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-    create_info.subresourceRange.baseMipLevel = 0;
-    create_info.subresourceRange.levelCount = 1;
-    create_info.subresourceRange.baseArrayLayer = 0;
-    create_info.subresourceRange.layerCount = 1;
-
-    if (device_.createImageView(&create_info, nullptr, &swapChainImageViews_[i]) != vk::Result::eSuccess) {
-      throw std::runtime_error("failed to create image views!");
-    }
-
+    swapChainImageViews_[i] = createImageView(swap_chain_image, swapChainImageFormat_);
     i++;
   }
 }
@@ -607,8 +596,16 @@ void HelloTriangle::createDescriptorSetLayout() {
 
   ubo_layout_binding.stageFlags = vk::ShaderStageFlagBits::eVertex;
 
+  vk::DescriptorSetLayoutBinding sampler_layout_binding = {};
+  sampler_layout_binding.binding = 1;
+  sampler_layout_binding.descriptorCount = 1;
+  sampler_layout_binding.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+
+  sampler_layout_binding.stageFlags = vk::ShaderStageFlagBits::eFragment;
+
+  std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {ubo_layout_binding, sampler_layout_binding};
   vk::DescriptorSetLayoutCreateInfo layout_info = {};
-  layout_info.setBindings(ubo_layout_binding);
+  layout_info.setBindings(bindings);
 
   if (device_.createDescriptorSetLayout(&layout_info, nullptr, &descriptorSetLayout_) != vk::Result::eSuccess) {
     throw std::runtime_error("failed to create descriptor set layout!");
@@ -616,8 +613,8 @@ void HelloTriangle::createDescriptorSetLayout() {
 }
 
 void HelloTriangle::createGraphicsPipeline() {
-  auto vert_shader_code = util::File::readFile(std::filesystem::path(ROOT_DIRECTORY) / "shaders/compiled/triangle.vert.spv");
-  auto frag_shader_code = util::File::readFile(std::filesystem::path(ROOT_DIRECTORY) / "shaders/compiled/triangle.frag.spv");
+  auto vert_shader_code = util::File::readFile(std::filesystem::path(ROOT_DIRECTORY) / "shaders/compiled/rectangle.vert.spv");
+  auto frag_shader_code = util::File::readFile(std::filesystem::path(ROOT_DIRECTORY) / "shaders/compiled/rectangle.frag.spv");
 
   vk::ShaderModule vert_shader_module = createShaderModule(vert_shader_code);
   vk::ShaderModule frag_shader_module = createShaderModule(frag_shader_code);
@@ -987,7 +984,7 @@ void HelloTriangle::createTextureImage() {
   int tex_channels;
   int tex_height;
 
-  auto path = std::filesystem::path(ROOT_DIRECTORY) / "textures/img.png";
+  auto path = std::filesystem::path(ROOT_DIRECTORY) / "textures/img.jpg";
   stbi_uc *pixels = stbi_load(path.generic_string().c_str(), &tex_width, &tex_height, &tex_channels, STBI_rgb_alpha);
   vk::DeviceSize image_size = tex_width * tex_height * 4;
 
@@ -1007,17 +1004,69 @@ void HelloTriangle::createTextureImage() {
 
   stbi_image_free(pixels);
 
-  textureImage_ = createImage(tex_width, tex_height, vk::Format::eB8G8R8A8Srgb, vk::ImageTiling::eOptimal,
+  textureImage_ = createImage(tex_width, tex_height, vk::Format::eR8G8B8A8Srgb, vk::ImageTiling::eOptimal,
                               vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
                               vk::MemoryPropertyFlagBits::eDeviceLocal, textureImageAllocation_);
 
-  transitionImageLayout(textureImage_, vk::Format::eB8G8R8A8Srgb, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+  transitionImageLayout(textureImage_, vk::Format::eR8G8B8A8Srgb, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
   copyBufferToImage(staging_buffer, textureImage_, tex_width, tex_height);
 
-  transitionImageLayout(textureImage_, vk::Format::eB8G8R8A8Srgb, vk::ImageLayout::eTransferDstOptimal,
+  transitionImageLayout(textureImage_, vk::Format::eR8G8B8A8Srgb, vk::ImageLayout::eTransferDstOptimal,
                         vk::ImageLayout::eShaderReadOnlyOptimal);
 
   vmaDestroyBuffer(allocator_, staging_buffer, staging_buffer_allocation);
+}
+
+vk::ImageView HelloTriangle::createImageView(vk::Image &image, vk::Format format) {
+  vk::ImageViewCreateInfo view_info = {};
+  view_info.image = image;
+  view_info.format = format;
+
+  view_info.viewType = vk::ImageViewType::e2D;
+  view_info.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+  view_info.subresourceRange.baseMipLevel = 0;
+  view_info.subresourceRange.levelCount = 1;
+  view_info.subresourceRange.baseArrayLayer = 0;
+  view_info.subresourceRange.layerCount = 1;
+
+  vk::ImageView image_view;
+  if (device_.createImageView(&view_info, nullptr, &image_view) != vk::Result::eSuccess) {
+    throw std::runtime_error("failed to create texture image view!");
+  }
+
+  return image_view;
+}
+
+void HelloTriangle::createTextureImageView() { textureImageView_ = createImageView(textureImage_, vk::Format::eR8G8B8A8Srgb); }
+
+void HelloTriangle::createTextureSampler() {
+  vk::SamplerCreateInfo sampler_info = {};
+  sampler_info.magFilter = vk::Filter::eLinear;
+  sampler_info.minFilter = vk::Filter::eLinear;
+
+  sampler_info.addressModeU = vk::SamplerAddressMode::eRepeat;
+  sampler_info.addressModeV = vk::SamplerAddressMode::eRepeat;
+  sampler_info.addressModeW = vk::SamplerAddressMode::eRepeat;
+
+  sampler_info.anisotropyEnable = VK_TRUE;
+
+  auto properties = physicalDevice_.getProperties();
+  sampler_info.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+
+  sampler_info.borderColor = vk::BorderColor::eFloatOpaqueBlack;
+  sampler_info.unnormalizedCoordinates = VK_FALSE;
+
+  sampler_info.compareEnable = VK_FALSE;
+  sampler_info.compareOp = vk::CompareOp::eAlways;
+
+  sampler_info.mipmapMode = vk::SamplerMipmapMode::eLinear;
+  sampler_info.mipLodBias = 0.0f;
+  sampler_info.minLod = 0.0f;
+  sampler_info.maxLod = 0.0f;
+
+  if (device_.createSampler(&sampler_info, nullptr, &textureSampler_) != vk::Result::eSuccess) {
+    throw std::runtime_error("failed to create texture sampler!");
+  }
 }
 
 void HelloTriangle::createVertexBuffer() {
@@ -1044,13 +1093,14 @@ void HelloTriangle::createUniformBuffers() {
 }
 
 void HelloTriangle::createDescriptorPool() {
-  vk::DescriptorPoolSize pool_size = {};
-  pool_size.type = vk::DescriptorType::eUniformBuffer;
-  pool_size.descriptorCount = swapChainImages_.size();
+  std::array<vk::DescriptorPoolSize, 2> pool_sizes = {};
+  pool_sizes[0].type = vk::DescriptorType::eUniformBuffer;
+  pool_sizes[0].descriptorCount = swapChainImages_.size();
+  pool_sizes[1].type = vk::DescriptorType::eCombinedImageSampler;
+  pool_sizes[1].descriptorCount = swapChainImages_.size();
 
   vk::DescriptorPoolCreateInfo pool_info = {};
-  pool_info.setPoolSizes(pool_size);
-
+  pool_info.setPoolSizes(pool_sizes);
   pool_info.maxSets = swapChainImages_.size();
 
   if (device_.createDescriptorPool(&pool_info, nullptr, &descriptorPool_) != vk::Result::eSuccess) {
@@ -1072,22 +1122,34 @@ void HelloTriangle::createDescriptorSets() {
 
   std::size_t i = 0;
   for (auto &descriptor_set: descriptorSets_) {
+    std::array<vk::WriteDescriptorSet, 2> descriptor_writes = {};
+    
     vk::DescriptorBufferInfo buffer_info = {};
     buffer_info.buffer = uniformBuffers_[i];
     buffer_info.offset = 0;
     buffer_info.range = sizeof(UniformBufferObject);
-
-    vk::WriteDescriptorSet descriptor_write = {};
-    descriptor_write.dstSet = descriptor_set;
-    descriptor_write.dstBinding = 0;
-    descriptor_write.dstArrayElement = 0;
-
-    descriptor_write.descriptorType = vk::DescriptorType::eUniformBuffer;
-    descriptor_write.descriptorCount = 1;
     
-    descriptor_write.setBufferInfo(buffer_info);
+    descriptor_writes[0].dstSet = descriptor_set;
+    descriptor_writes[0].dstBinding = 0;
+    descriptor_writes[0].dstArrayElement = 0;
+    descriptor_writes[0].descriptorType = vk::DescriptorType::eUniformBuffer;
+    descriptor_writes[0].descriptorCount = 1;
+    descriptor_writes[0].setBufferInfo(buffer_info);
+
+
+    vk::DescriptorImageInfo image_info = {};
+    image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+    image_info.imageView = textureImageView_;
+    image_info.sampler = textureSampler_;
+
+    descriptor_writes[1].dstSet = descriptor_set;
+    descriptor_writes[1].dstBinding = 1;
+    descriptor_writes[1].dstArrayElement = 0;
+    descriptor_writes[1].descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    descriptor_writes[1].descriptorCount = 1;
+    descriptor_writes[1].setImageInfo(image_info);
     
-    device_.updateDescriptorSets(1, &descriptor_write, 0, nullptr);
+    device_.updateDescriptorSets(descriptor_writes, {});
     
     i++;
   }

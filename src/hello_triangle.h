@@ -7,21 +7,20 @@
 
 #define GLFW_INCLUDE_VULKAN
 
+#include <chrono>
 #include <iostream>
 #include <set>
+#include <stb_image.h>
 #include <stdexcept>
 #include <vector>
-#include <chrono>
-
+#include <vk_mem_alloc.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <stb_image.h>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
-#include <vk_mem_alloc.h>
-
 #include "util/file.h"
+#include "vertex.h"
 
 class HelloTriangle {
  public:
@@ -105,40 +104,10 @@ class HelloTriangle {
     std::vector<vk::PresentModeKHR> presentModes;
   };
 
-  struct Vertex {
-    glm::vec2 pos;
-    glm::vec3 colour;
-
-    static vk::VertexInputBindingDescription getBindingDescription() {
-      vk::VertexInputBindingDescription binding_description;
-      binding_description.binding = 0;
-      binding_description.stride = sizeof(Vertex);
-      binding_description.inputRate = vk::VertexInputRate::eVertex;
-
-      return binding_description;
-    }
-
-    static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions() {
-      std::array<vk::VertexInputAttributeDescription, 2> attribute_descriptions;
-
-      attribute_descriptions[0].binding = 0;
-      attribute_descriptions[0].location = 0;
-      attribute_descriptions[0].format = vk::Format::eR32G32Sfloat;
-      attribute_descriptions[0].offset = offsetof(Vertex, pos);
-
-      attribute_descriptions[1].binding = 0;
-      attribute_descriptions[1].location = 1;
-      attribute_descriptions[1].format = vk::Format::eR32G32B32Sfloat;
-      attribute_descriptions[1].offset = offsetof(Vertex, colour);
-
-      return attribute_descriptions;
-    }
-  };
-
-  const std::vector<Vertex> vertices_ = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                                         {{0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}},
-                                         {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-                                         {{-0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}}};
+  const std::vector<Vertex> vertices_ = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+                                         {{0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+                                         {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+                                         {{-0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}}};
 
   const std::vector<uint16_t> indices_ = {
       0, 1, 2, 2, 3, 0,
@@ -158,6 +127,9 @@ class HelloTriangle {
   std::vector<VmaAllocation> uniformBuffersAllocation_;
   vk::Image textureImage_;
   VmaAllocation textureImageAllocation_;
+
+  vk::ImageView textureImageView_;
+  vk::Sampler textureSampler_;
 
   void initDispatchLoader();
 
@@ -239,6 +211,12 @@ class HelloTriangle {
   
   void createTextureImage();
   
+  vk::ImageView createImageView(vk::Image &image, vk::Format format);
+
+  void createTextureImageView();
+
+  void createTextureSampler();
+
   void createVertexBuffer();
   
   void createIndexBuffer();
