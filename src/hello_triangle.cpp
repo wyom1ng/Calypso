@@ -962,7 +962,7 @@ void HelloTriangle::transitionImageLayout(vk::Image &image, vk::Format format, v
 }
 
 void HelloTriangle::copyBufferToImage(vk::Buffer &buffer, vk::Image &image, uint32_t width, uint32_t height) {
-  auto command_buffer = beginSingleTimeCommands(graphicsCommandPool_);
+  auto command_buffer = beginSingleTimeCommands(transferCommandPool_);
   {
     vk::BufferImageCopy region = {};
     region.bufferOffset = 0;
@@ -979,7 +979,7 @@ void HelloTriangle::copyBufferToImage(vk::Buffer &buffer, vk::Image &image, uint
 
     command_buffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, region);
   }
-  endSingleTimeCommands(command_buffer, graphicsQueue_, graphicsCommandPool_);
+  endSingleTimeCommands(command_buffer, transferQueue_, transferCommandPool_);
 }
 
 void HelloTriangle::createTextureImage() {
