@@ -11,7 +11,10 @@ add_executable(${PROJECT_NAME}
         src/hello_triangle.cpp
         src/hello_triangle.h
         src/util/file.cpp
-        src/util/file.h src/thirdparty.cpp src/vertex.cpp src/vertex.h)
+        src/util/file.h 
+        src/thirdparty.cpp 
+        src/vertex.cpp 
+        src/vertex.h)
 
 ### glfw ###############################################################################################################
 

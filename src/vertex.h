@@ -9,7 +9,7 @@
 #include <vulkan/vulkan.hpp>
 
 struct Vertex {
-  glm::vec2 pos;
+  glm::vec3 pos;
   glm::vec3 colour;
   glm::vec2 texCoord;
 

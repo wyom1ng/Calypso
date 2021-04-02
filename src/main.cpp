@@ -2,7 +2,6 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <iostream>
 
-VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 int main() {
   spdlog::set_level(spdlog::level::debug);
@@ -14,8 +13,6 @@ int main() {
     app.mainloop();
   } catch (const std::exception &e) {
     std::cerr << e.what() << std::endl;
-    return EXIT_FAILURE;
+    return 1;
   }
-
-  return EXIT_SUCCESS;
 }

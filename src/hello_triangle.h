@@ -7,8 +7,11 @@
 
 #define GLFW_INCLUDE_VULKAN
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 #include <chrono>
 #include <iostream>
+#include <optional>
 #include <set>
 #include <stb_image.h>
 #include <stdexcept>
@@ -104,13 +107,21 @@ class HelloTriangle {
     std::vector<vk::PresentModeKHR> presentModes;
   };
 
-  const std::vector<Vertex> vertices_ = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-                                         {{0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-                                         {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-                                         {{-0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}}};
+  const std::vector<Vertex> vertices_ = {
+      {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+      {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+      {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+      {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+
+      {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+      {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+      {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+      {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+  };
 
   const std::vector<uint16_t> indices_ = {
       0, 1, 2, 2, 3, 0,
+      4, 5, 6, 6, 7, 4,
   };
 
   struct UniformBufferObject {
@@ -130,6 +141,10 @@ class HelloTriangle {
 
   vk::ImageView textureImageView_;
   vk::Sampler textureSampler_;
+
+  vk::Image depthImage_;
+  VmaAllocation depthImageAllocation_;
+  vk::ImageView depthImageView_;
 
   void initDispatchLoader();
 
@@ -192,6 +207,14 @@ class HelloTriangle {
   void createFramebuffers();
 
   void createCommandPools();
+
+  std::optional<vk::Format> findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
+  
+  std::optional<vk::Format> findDepthFormat();
+
+  static bool hasStencilComponent(const vk::Format &format);
+
+  void createDepthResources();
   
   [[nodiscard]] vk::CommandBuffer beginSingleTimeCommands(const vk::CommandPool &commandPool) const;
   
@@ -211,7 +234,7 @@ class HelloTriangle {
   
   void createTextureImage();
   
-  vk::ImageView createImageView(vk::Image &image, vk::Format format);
+  vk::ImageView createImageView(vk::Image &image, vk::Format format, vk::ImageAspectFlags aspectFlags);
 
   void createTextureImageView();
 
