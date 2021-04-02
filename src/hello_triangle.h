@@ -129,15 +129,22 @@ class HelloTriangle {
   std::vector<vk::Buffer> uniformBuffers_;
   std::vector<VmaAllocation> uniformBuffersAllocation_;
   uint32_t mipLevels_;
+
+  vk::Sampler textureSampler_;
+  
   vk::Image textureImage_;
   VmaAllocation textureImageAllocation_;
-
   vk::ImageView textureImageView_;
-  vk::Sampler textureSampler_;
 
   vk::Image depthImage_;
   VmaAllocation depthImageAllocation_;
   vk::ImageView depthImageView_;
+
+  vk::Image colourImage_;
+  VmaAllocation colourImageAllocation_;
+  vk::ImageView colourImageView_;
+
+  vk::SampleCountFlagBits sampleCount_ = vk::SampleCountFlagBits::e1;
 
   void initDispatchLoader();
 
@@ -166,6 +173,8 @@ class HelloTriangle {
   QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
 
   SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device);
+  
+  vk::SampleCountFlagBits getMaxUsableSampleCount();
 
   void pickPhysicalDevice();
 
@@ -201,6 +210,8 @@ class HelloTriangle {
 
   void createCommandPools();
 
+  void createColourResources();
+
   std::optional<vk::Format> findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
   
   std::optional<vk::Format> findDepthFormat();
@@ -219,8 +230,9 @@ class HelloTriangle {
 
   vk::Buffer createBufferWithStaging(vk::DeviceSize size, const void *data, VmaAllocation &bufferAllocation, vk::BufferUsageFlagBits usage);
 
-  vk::Image createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling,
-                        vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, VmaAllocation &imageAllocation);
+  vk::Image createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::SampleCountFlagBits sampleCount, vk::Format format,
+                        vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
+                        VmaMemoryUsage allocationUsage, VmaAllocation &imageAllocation);
 
   void transitionImageLayout(vk::Image &image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels);
 
