@@ -100,6 +100,7 @@ void HelloTriangle::initVulkan() {
   createTextureImage();
   createTextureImageView();
   createTextureSampler();
+  loadModel();
   createVertexBuffer();
   createIndexBuffer();
   createUniformBuffers();
@@ -397,7 +398,7 @@ void HelloTriangle::createAllocator() {
 
 vk::SurfaceFormatKHR HelloTriangle::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats) {
   for (const auto &available_format : availableFormats) {
-    if (available_format.format == vk::Format::eR8G8B8A8Srgb && available_format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+    if (available_format.format == vk::Format::eB8G8R8A8Srgb && available_format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
       return available_format;
     }
   }
@@ -1043,7 +1044,7 @@ void HelloTriangle::createTextureImage() {
   int tex_channels;
   int tex_height;
 
-  auto path = std::filesystem::path(ROOT_DIRECTORY) / "textures/img.jpg";
+  auto path = std::filesystem::path(ROOT_DIRECTORY) / TEXTURE_PATH;
   stbi_uc *pixels = stbi_load(path.generic_string().c_str(), &tex_width, &tex_height, &tex_channels, STBI_rgb_alpha);
   vk::DeviceSize image_size = tex_width * tex_height * 4;
 
@@ -1123,6 +1124,46 @@ void HelloTriangle::createTextureSampler() {
 
   if (device_.createSampler(&sampler_info, nullptr, &textureSampler_) != vk::Result::eSuccess) {
     throw std::runtime_error("failed to create texture sampler!");
+  }
+}
+
+void HelloTriangle::loadModel() {
+  tinyobj::attrib_t attrib;
+  std::vector<tinyobj::shape_t> shapes;
+  std::vector<tinyobj::material_t> materials;
+  std::string warn;
+  std::string err;
+
+  if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.data())) {
+    throw std::runtime_error(warn + err);
+  }
+
+  std::unordered_map<Vertex, uint32_t> unique_vertices = {};
+  indices_.reserve(0);
+  for (const auto &shape : shapes) {
+    indices_.reserve(indices_.capacity() + shape.mesh.indices.size());
+    for (const auto &index : shape.mesh.indices) {
+      Vertex vertex = {};
+
+      vertex.pos = {
+          attrib.vertices[3 * index.vertex_index + 0],
+          attrib.vertices[3 * index.vertex_index + 1],
+          attrib.vertices[3 * index.vertex_index + 2],
+      };
+
+      vertex.texCoord = {
+          attrib.texcoords[2 * index.texcoord_index + 0],
+          1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
+      };
+      vertex.colour = {1.0f, 1.0f, 1.0f};
+
+      if (unique_vertices.count(vertex) == 0) {
+        unique_vertices[vertex] = static_cast<uint32_t>(vertices_.size());
+        vertices_.push_back(vertex);
+      }
+
+      indices_.emplace_back(unique_vertices[vertex]);
+    }
   }
 }
 
@@ -1254,7 +1295,7 @@ void HelloTriangle::createCommandBuffers() {
 
       vk::DeviceSize offset = 0;
       graphicsCommandBuffers_[i].bindVertexBuffers(0, vertexBuffer_, offset);
-      graphicsCommandBuffers_[i].bindIndexBuffer(indexBuffer_, 0, vk::IndexType::eUint16);
+      graphicsCommandBuffers_[i].bindIndexBuffer(indexBuffer_, 0, vk::IndexType::eUint32);
 
       command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout_, 0, descriptorSets_[i], {});
       
@@ -1289,7 +1330,7 @@ void HelloTriangle::updateUniformBuffer(uint32_t currentImage) {
   float delta_time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - startTime_).count();
 
   UniformBufferObject uniform_buffer_object = {};
-  uniform_buffer_object.model = glm::rotate(glm::mat4(1.0f), delta_time * glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  uniform_buffer_object.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   uniform_buffer_object.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   uniform_buffer_object.proj =
       glm::perspective(glm::radians(45.0f), swapChainExtent_.width / static_cast<float>(swapChainExtent_.height), 0.1f, 10.0f);

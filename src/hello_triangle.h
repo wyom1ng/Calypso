@@ -15,6 +15,8 @@
 #include <set>
 #include <stb_image.h>
 #include <stdexcept>
+#include <tiny_obj_loader.h>
+#include <unordered_map>
 #include <vector>
 #include <vk_mem_alloc.h>
 #include <GLFW/glfw3.h>
@@ -93,6 +95,9 @@ class HelloTriangle {
   static constexpr uint32_t WIDTH = 1024;
   static constexpr uint32_t HEIGHT = 768;
 
+  static constexpr std::string_view MODEL_PATH = "assets/viking_room.obj";
+  static constexpr std::string_view TEXTURE_PATH = "assets/viking_room.png";
+
   struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
@@ -107,22 +112,9 @@ class HelloTriangle {
     std::vector<vk::PresentModeKHR> presentModes;
   };
 
-  const std::vector<Vertex> vertices_ = {
-      {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-      {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-      {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-      {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+  std::vector<Vertex> vertices_;
 
-      {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-      {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-      {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-      {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-  };
-
-  const std::vector<uint16_t> indices_ = {
-      0, 1, 2, 2, 3, 0,
-      4, 5, 6, 6, 7, 4,
-  };
+  std::vector<uint32_t> indices_;
 
   struct UniformBufferObject {
     alignas(16) glm::mat4 model;
@@ -239,6 +231,8 @@ class HelloTriangle {
   void createTextureImageView();
 
   void createTextureSampler();
+
+  void loadModel();
 
   void createVertexBuffer();
   
