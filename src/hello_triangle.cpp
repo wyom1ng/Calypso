@@ -80,6 +80,33 @@ void HelloTriangle::initWindow() {
 
   glfwSetWindowUserPointer(window_, this);
   glfwSetFramebufferSizeCallback(window_, HelloTriangle::framebufferResizeCallback);
+
+  GLFWimage images[2];
+  int large_width;
+  int large_channels;
+  int large_height;
+
+  auto large_path = std::filesystem::path(ROOT_DIRECTORY) / "assets/calypso256x.png";
+  stbi_uc *large_pixels = stbi_load(large_path.generic_string().c_str(), &large_width, &large_height, &large_channels, STBI_rgb_alpha);
+  images[0] = {
+      .width = large_width,
+      .height = large_height,
+      .pixels = large_pixels,
+  };
+  
+  int small_width;
+  int small_channels;
+  int small_height;
+
+  auto small_path = std::filesystem::path(ROOT_DIRECTORY) / "assets/calypso48x.png";
+  stbi_uc *snall_pixels = stbi_load(small_path.generic_string().c_str(), &small_width, &small_height, &small_channels, STBI_rgb_alpha);
+  images[1] = {
+      .width = small_width,
+      .height = small_height,
+      .pixels = snall_pixels,
+  };
+
+  glfwSetWindowIcon(window_, 2, images);
 }
 
 void HelloTriangle::initVulkan() {
@@ -394,6 +421,7 @@ void HelloTriangle::createLogicalDevice() {
   vk::PhysicalDeviceFeatures device_features = {};
   device_features.samplerAnisotropy = VK_TRUE;
   device_features.fillModeNonSolid = VK_TRUE;
+  device_features.sampleRateShading  = VK_TRUE;
 
   vk::DeviceCreateInfo create_info = {};
 
@@ -735,7 +763,7 @@ void HelloTriangle::createGraphicsPipeline() {
   vk::PipelineMultisampleStateCreateInfo multisampling = {};
   multisampling.sampleShadingEnable = VK_FALSE;
   multisampling.rasterizationSamples = sampleCount_;
-  multisampling.minSampleShading = 1.0f;
+  multisampling.minSampleShading = .2f;
   multisampling.pSampleMask = nullptr;
   multisampling.alphaToCoverageEnable = VK_FALSE;
   multisampling.alphaToOneEnable = VK_FALSE;
@@ -902,7 +930,7 @@ void HelloTriangle::createDepthResources() {
                             vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, depthImageAllocation_);
   depthImageView_ = createImageView(depthImage_, depth_format.value(), vk::ImageAspectFlagBits::eDepth, 1);
 
-  //transitionImageLayout(depthImage_, depth_format.value(), vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal, 1);
+  transitionImageLayout(depthImage_, depth_format.value(), vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal, 1);
 }
 
 vk::CommandBuffer HelloTriangle::beginSingleTimeCommands(const vk::CommandPool &commandPool) const {

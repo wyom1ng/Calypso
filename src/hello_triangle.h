@@ -42,7 +42,7 @@ class HelloTriangle {
   vk::DebugUtilsMessengerEXT debugMessenger_;
 
 #ifdef NDEBUG
-  static constexpr ENABLE_VALIDATION_LAYERS = false;
+  static constexpr bool ENABLE_VALIDATION_LAYERS = false;
 #else
   static constexpr bool ENABLE_VALIDATION_LAYERS = true;
 #endif
