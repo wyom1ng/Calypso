@@ -128,6 +128,7 @@ class HelloTriangle {
   VmaAllocation indexBufferAllocation_;
   std::vector<vk::Buffer> uniformBuffers_;
   std::vector<VmaAllocation> uniformBuffersAllocation_;
+  uint32_t mipLevels_;
   vk::Image textureImage_;
   VmaAllocation textureImageAllocation_;
 
@@ -218,15 +219,18 @@ class HelloTriangle {
 
   vk::Buffer createBufferWithStaging(vk::DeviceSize size, const void *data, VmaAllocation &bufferAllocation, vk::BufferUsageFlagBits usage);
 
-  vk::Image createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, VmaAllocation &imageAllocation);
-  
-  void transitionImageLayout(vk::Image &image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
+  vk::Image createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling,
+                        vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, VmaAllocation &imageAllocation);
+
+  void transitionImageLayout(vk::Image &image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels);
 
   void copyBufferToImage(vk::Buffer &buffer, vk::Image &image, uint32_t width, uint32_t height);
+
+  void generateMipmaps(vk::Image image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
   
   void createTextureImage();
-  
-  vk::ImageView createImageView(vk::Image &image, vk::Format format, vk::ImageAspectFlags aspectFlags);
+
+  vk::ImageView createImageView(vk::Image &image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
 
   void createTextureImageView();
 
