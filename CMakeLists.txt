@@ -8,13 +8,15 @@ add_compile_definitions(ROOT_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_executable(${PROJECT_NAME}
         src/main.cpp
-        src/hello_triangle.cpp
-        src/hello_triangle.h
         src/util/file.cpp
         src/util/file.h 
-        src/thirdparty.cpp 
-        src/vertex.cpp 
-        src/vertex.h)
+        src/thirdparty.cpp
+        src/rendering/engine.cpp
+        src/rendering/engine.h
+        src/rendering/initialisers.cpp
+        src/rendering/initialisers.h
+        src/rendering/type/vertex.cpp
+        src/rendering/type/vertex.h)
 
 ### glfw ###############################################################################################################
 

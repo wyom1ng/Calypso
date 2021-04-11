@@ -1,9 +1,10 @@
 ﻿//
-// Created by Wyoming on 22/03/2021.
+// Created by Wyoming on 11/04/2021.
 //
 
-#ifndef CALYPSO_HELLO_TRIANGLE_H
-#define CALYPSO_HELLO_TRIANGLE_H
+#ifndef CALYPSO_ENGINE_H
+#define CALYPSO_ENGINE_H
+
 
 #define GLFW_INCLUDE_VULKAN
 
@@ -24,16 +25,18 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
-#include "util/file.h"
-#include "vertex.h"
+#include "../util/file.h"
+#include "type/vertex.h"
 
-class HelloTriangle {
+namespace rendering {
+
+class Engine {
  public:
-  HelloTriangle();
+  Engine();
 
   void mainloop();
 
-  ~HelloTriangle();
+  ~Engine();
 
  private:
   const std::vector<const char *> validationLayers_ = {"VK_LAYER_KHRONOS_validation"};
@@ -48,7 +51,7 @@ class HelloTriangle {
 #endif
 
   static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-  
+
   std::chrono::high_resolution_clock::time_point startTime_;
 
   VmaAllocator allocator_;
@@ -77,7 +80,7 @@ class HelloTriangle {
   vk::DescriptorSetLayout descriptorSetLayout_;
   vk::DescriptorPool descriptorPool_;
   std::vector<vk::DescriptorSet> descriptorSets_;
-  
+
   vk::PipelineLayout pipelineLayout_;
   vk::Pipeline graphicsPipeline_;
 
@@ -112,7 +115,7 @@ class HelloTriangle {
     std::vector<vk::PresentModeKHR> presentModes;
   };
 
-  std::vector<Vertex> vertices_;
+  std::vector<type::Vertex> vertices_;
 
   std::vector<uint32_t> indices_;
 
@@ -131,7 +134,7 @@ class HelloTriangle {
   uint32_t mipLevels_;
 
   vk::Sampler textureSampler_;
-  
+
   vk::Image textureImage_;
   VmaAllocation textureImageAllocation_;
   vk::ImageView textureImageView_;
@@ -173,7 +176,7 @@ class HelloTriangle {
   QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
 
   SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device);
-  
+
   vk::SampleCountFlagBits getMaxUsableSampleCount();
 
   void pickPhysicalDevice();
@@ -181,7 +184,7 @@ class HelloTriangle {
   bool checkDeviceExtensionSupport(vk::PhysicalDevice device);
 
   void createLogicalDevice();
-  
+
   void createAllocator();
 
   static vk::SurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats);
@@ -213,19 +216,19 @@ class HelloTriangle {
   void createColourResources();
 
   std::optional<vk::Format> findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
-  
+
   std::optional<vk::Format> findDepthFormat();
 
   static bool hasStencilComponent(const vk::Format &format);
 
   void createDepthResources();
-  
+
   [[nodiscard]] vk::CommandBuffer beginSingleTimeCommands(const vk::CommandPool &commandPool) const;
-  
+
   void endSingleTimeCommands(vk::CommandBuffer &commandBuffer, const vk::Queue &queue, const vk::CommandPool &commandPool) const;
 
   vk::Buffer createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, VmaAllocation &allocation) const;
-  
+
   void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size) const;
 
   vk::Buffer createBufferWithStaging(vk::DeviceSize size, const void *data, VmaAllocation &bufferAllocation, vk::BufferUsageFlagBits usage);
@@ -239,7 +242,7 @@ class HelloTriangle {
   void copyBufferToImage(vk::Buffer &buffer, vk::Image &image, uint32_t width, uint32_t height);
 
   void generateMipmaps(vk::Image image, vk::Format imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-  
+
   void createTextureImage();
 
   vk::ImageView createImageView(vk::Image &image, vk::Format format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
@@ -251,13 +254,13 @@ class HelloTriangle {
   void loadModel();
 
   void createVertexBuffer();
-  
+
   void createIndexBuffer();
-  
+
   void createUniformBuffers();
 
   void createDescriptorPool();
-  
+
   void createDescriptorSets();
 
   void createCommandBuffers();
@@ -269,4 +272,6 @@ class HelloTriangle {
   void drawFrame();
 };
 
-#endif  // CALYPSO_HELLO_TRIANGLE_H
+}  // namespace rendering
+
+#endif  // CALYPSO_ENGINE_H

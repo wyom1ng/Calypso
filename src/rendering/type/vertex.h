@@ -11,6 +11,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
+namespace rendering::type {
+
 struct Vertex {
   glm::vec3 pos;
   glm::vec3 colour;
@@ -20,15 +22,15 @@ struct Vertex {
 
   static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions();
 
-  bool operator==(const Vertex& other) const {
-    return pos == other.pos && colour == other.colour && texCoord == other.texCoord;
-  }
+  bool operator==(const Vertex &other) const { return pos == other.pos && colour == other.colour && texCoord == other.texCoord; }
 };
+
+}  // namespace rendering::types
 
 namespace std {
 template <>
-struct hash<Vertex> {
-  size_t operator()(Vertex const &vertex) const {
+struct hash<rendering::type::Vertex> {
+  size_t operator()(rendering::type::Vertex const &vertex) const {
     return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.colour) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
   }
 };

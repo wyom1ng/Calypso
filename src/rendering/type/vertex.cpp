@@ -4,6 +4,8 @@
 
 #include "vertex.h"
 
+namespace rendering::type {
+
 vk::VertexInputBindingDescription Vertex::getBindingDescription() {
   vk::VertexInputBindingDescription binding_description;
   binding_description.binding = 0;
@@ -33,3 +35,5 @@ std::array<vk::VertexInputAttributeDescription, 3> Vertex::getAttributeDescripti
 
   return attribute_descriptions;
 }
+
+}  // namespace rendering::types
