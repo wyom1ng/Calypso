@@ -6,10 +6,18 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 add_compile_definitions(ROOT_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
 
-add_executable(${PROJECT_NAME}
+IF (WIN32)
+    IF (NOT ${CMAKE_BUILD_TYPE} MATCHES "Debug") 
+        set(MAYBE_WIN32 WIN32)
+    ENDIF()
+ENDIF ()
+
+add_executable(${PROJECT_NAME} ${MAYBE_WIN32}
         src/main.cpp
+        src/util/error.cpp
+        src/util/error.h
         src/util/file.cpp
-        src/util/file.h 
+        src/util/file.h
         src/thirdparty.cpp
         src/rendering/engine.cpp
         src/rendering/engine.h
@@ -17,6 +25,10 @@ add_executable(${PROJECT_NAME}
         src/rendering/initialisers.h
         src/rendering/type/vertex.cpp
         src/rendering/type/vertex.h)
+
+add_custom_command(TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/bin/compile_shaders.py)
 
 ### glfw ###############################################################################################################
 
@@ -26,7 +38,7 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(lib/glfw)
-target_link_libraries(${PROJECT_NAME} PUBLIC glfw)
+target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 
 ########################################################################################################################
 ### glm ################################################################################################################
@@ -55,7 +67,7 @@ elseif(UNIX)
 endif()
 
 target_compile_definitions(Vulkan::Vulkan INTERFACE VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1 VULKAN_HPP_FLAGS_MASK_TYPE_AS_PUBLIC)
-target_link_libraries(${PROJECT_NAME} PUBLIC Vulkan::Vulkan)
+target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
 
 ########################################################################################################################
 ### spdlog #############################################################################################################
@@ -76,5 +88,11 @@ include_directories(lib/stb)
 ### tinyobjloader ######################################################################################################
 
 include_directories(lib/tinyobjloader/)
+
+########################################################################################################################
+### boxer ##############################################################################################################
+
+add_subdirectory("lib/boxer")
+target_link_libraries(${PROJECT_NAME} PRIVATE Boxer)
 
 ########################################################################################################################

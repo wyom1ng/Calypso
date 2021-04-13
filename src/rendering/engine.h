@@ -5,9 +5,6 @@
 #ifndef CALYPSO_ENGINE_H
 #define CALYPSO_ENGINE_H
 
-
-#define GLFW_INCLUDE_VULKAN
-
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #include <chrono>
@@ -26,6 +23,7 @@
 #include <spdlog/spdlog.h>
 #include <vulkan/vulkan.hpp>
 #include "../util/file.h"
+#include "initialisers.h"
 #include "type/vertex.h"
 
 namespace rendering {
@@ -95,8 +93,8 @@ class Engine {
   std::size_t currentFrame_ = 0;
   bool framebufferResized_ = false;
 
-  static constexpr uint32_t WIDTH = 1024;
-  static constexpr uint32_t HEIGHT = 768;
+  static constexpr uint16_t WIDTH = 1024;
+  static constexpr uint16_t HEIGHT = 768;
 
   static constexpr std::string_view MODEL_PATH = "assets/viking_room.obj";
   static constexpr std::string_view TEXTURE_PATH = "assets/viking_room.png";
@@ -149,27 +147,13 @@ class Engine {
 
   vk::SampleCountFlagBits sampleCount_ = vk::SampleCountFlagBits::e1;
 
-  void initDispatchLoader();
-
   static void framebufferResizeCallback(GLFWwindow *window, int width, int height);
 
-  void initWindow();
-
   void initVulkan();
-
-  bool checkValidationLayerSupport();
-
-  static std::vector<const char *> getRequiredExtensions();
-
-  void createInstance();
-
-  static vk::DebugUtilsMessengerCreateInfoEXT getDebugMessengerCreateInfo();
 
   static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                                         VkDebugUtilsMessageTypeFlagsEXT messageType,
                                                         const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData);
-
-  void setupDebugMessenger();
 
   void createSurface();
 
