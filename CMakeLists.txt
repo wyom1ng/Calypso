@@ -24,7 +24,7 @@ add_executable(${PROJECT_NAME} ${MAYBE_WIN32}
         src/rendering/initialisers.cpp
         src/rendering/initialisers.h
         src/rendering/type/vertex.cpp
-        src/rendering/type/vertex.h)
+        src/rendering/type/vertex.h src/rendering/type/misc.h)
 
 add_custom_command(TARGET ${PROJECT_NAME}
         POST_BUILD

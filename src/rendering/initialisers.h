@@ -7,11 +7,9 @@
 
 #define GLFW_INCLUDE_VULKAN
 
-#include <filesystem>
-#include <functional>
-#include <stb_image.h>
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
+#include "type/misc.h"
 
 namespace rendering {
 
@@ -34,6 +32,19 @@ class Initialisers {
                                                         PFN_vkDebugUtilsMessengerCallbackEXT debugCallback);
 
   static vk::SurfaceKHR createSurface(const vk::Instance &instance, GLFWwindow *window);
+
+  static type::SwapChainSupportDetails querySwapChainSupport(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface);
+
+  static type::QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface);
+  
+  static vk::PhysicalDevice createPhysicalDevice(const vk::Instance &instance, const vk::SurfaceKHR &surface, const std::vector<const char *> &deviceExtensions);
+  
+  static vk::SampleCountFlagBits getMaxUsableSampleCount(const vk::PhysicalDevice &physicalDevice);
+  
+ private:
+  static bool checkDeviceExtensionSupport(const vk::PhysicalDevice &device, const std::vector<const char *> &deviceExtensions);
+  
+  static uint32_t rateDevice(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface, const std::vector<const char *> &deviceExtensions);
 };
 
 }  // namespace rendering

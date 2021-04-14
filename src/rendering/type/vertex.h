@@ -22,10 +22,10 @@ struct Vertex {
 
   static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions();
 
-  bool operator==(const Vertex &other) const { return pos == other.pos && colour == other.colour && texCoord == other.texCoord; }
+  bool operator==(const Vertex &other) const;
 };
 
-}  // namespace rendering::types
+}  // namespace rendering::type
 
 namespace std {
 template <>

@@ -6,24 +6,16 @@
 #define CALYPSO_ENGINE_H
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define NOMINMAX
 
 #include <chrono>
-#include <iostream>
 #include <optional>
-#include <set>
-#include <stb_image.h>
-#include <stdexcept>
-#include <tiny_obj_loader.h>
-#include <unordered_map>
 #include <vector>
-#include <vk_mem_alloc.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <spdlog/spdlog.h>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
-#include "../util/file.h"
-#include "initialisers.h"
 #include "type/vertex.h"
 
 namespace rendering {
@@ -99,20 +91,6 @@ class Engine {
   static constexpr std::string_view MODEL_PATH = "assets/viking_room.obj";
   static constexpr std::string_view TEXTURE_PATH = "assets/viking_room.png";
 
-  struct QueueFamilyIndices {
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
-    std::optional<uint32_t> transferFamily;
-
-    [[nodiscard]] bool isComplete() const { return graphicsFamily.has_value() && presentFamily.has_value() && transferFamily.has_value(); }
-  };
-
-  struct SwapChainSupportDetails {
-    vk::SurfaceCapabilitiesKHR capabilities;
-    std::vector<vk::SurfaceFormatKHR> formats;
-    std::vector<vk::PresentModeKHR> presentModes;
-  };
-
   std::vector<type::Vertex> vertices_;
 
   std::vector<uint32_t> indices_;
@@ -154,16 +132,6 @@ class Engine {
   static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                                         VkDebugUtilsMessageTypeFlagsEXT messageType,
                                                         const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData);
-
-  QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
-
-  SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device);
-
-  vk::SampleCountFlagBits getMaxUsableSampleCount();
-
-  void pickPhysicalDevice();
-
-  bool checkDeviceExtensionSupport(vk::PhysicalDevice device);
 
   void createLogicalDevice();
 

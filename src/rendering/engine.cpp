@@ -4,6 +4,16 @@
 
 #include "engine.h"
 
+#include <algorithm>
+#include <set>
+#include <stb_image.h>
+#include <stdexcept>
+#include <tiny_obj_loader.h>
+#include <unordered_map>
+#include <spdlog/spdlog.h>
+#include "../util/file.h"
+#include "initialisers.h"
+
 namespace rendering {
 
 Engine::Engine() {
@@ -67,7 +77,8 @@ void Engine::initVulkan() {
   instance_ = Initialisers::createInstance(ENABLE_VALIDATION_LAYERS, validationLayers_, Engine::debugCallback);
   debugMessenger_ = Initialisers::setupDebugMessenger(instance_, ENABLE_VALIDATION_LAYERS, Engine::debugCallback);
   surface_ = Initialisers::createSurface(instance_, window_);
-  pickPhysicalDevice();
+  physicalDevice_ = Initialisers::createPhysicalDevice(instance_, surface_, deviceExtensions_);
+  sampleCount_ = Initialisers::getMaxUsableSampleCount(physicalDevice_);
   createLogicalDevice();
   createAllocator();
   createSwapChain();
@@ -117,143 +128,8 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL Engine::debugCallback(VkDebugUtilsMessageSeveri
   return VK_FALSE;
 }
 
-Engine::QueueFamilyIndices Engine::findQueueFamilies(vk::PhysicalDevice device) {
-  QueueFamilyIndices indices;
-
-  auto queue_families = device.getQueueFamilyProperties();
-
-  uint32_t i = 0;
-  for (const auto &queue_family : queue_families) {
-    if (queue_family.queueFlags & vk::QueueFlagBits::eGraphics) {
-      indices.graphicsFamily = i;
-    }
-
-    if (queue_family.queueFlags & vk::QueueFlagBits::eTransfer && !(queue_family.queueFlags & vk::QueueFlagBits::eGraphics)) {
-      indices.transferFamily = i;
-    }
-
-    auto present_support = device.getSurfaceSupportKHR(i, surface_);
-
-    if (present_support) {
-      indices.presentFamily = i;
-    }
-
-    if (indices.isComplete()) {
-      break;
-    }
-
-    i++;
-  }
-
-  return indices;
-}
-
-Engine::SwapChainSupportDetails Engine::querySwapChainSupport(vk::PhysicalDevice device) {
-  SwapChainSupportDetails details = {};
-
-  details.capabilities = device.getSurfaceCapabilitiesKHR(surface_);
-  details.formats = device.getSurfaceFormatsKHR(surface_);
-  details.presentModes = device.getSurfacePresentModesKHR(surface_);
-
-  return details;
-}
-
-vk::SampleCountFlagBits Engine::getMaxUsableSampleCount() {
-  auto physical_device_properties = physicalDevice_.getProperties();
-
-  vk::SampleCountFlags counts =
-      physical_device_properties.limits.framebufferColorSampleCounts & physical_device_properties.limits.framebufferDepthSampleCounts;
-  if (counts & vk::SampleCountFlagBits::e64) {
-    return vk::SampleCountFlagBits::e64;
-  }
-  if (counts & vk::SampleCountFlagBits::e32) {
-    return vk::SampleCountFlagBits::e32;
-  }
-  if (counts & vk::SampleCountFlagBits::e16) {
-    return vk::SampleCountFlagBits::e16;
-  }
-  if (counts & vk::SampleCountFlagBits::e8) {
-    return vk::SampleCountFlagBits::e8;
-  }
-  if (counts & vk::SampleCountFlagBits::e4) {
-    return vk::SampleCountFlagBits::e4;
-  }
-  if (counts & vk::SampleCountFlagBits::e4) {
-    return vk::SampleCountFlagBits::e4;
-  }
-
-  return vk::SampleCountFlagBits::e1;
-}
-
-void Engine::pickPhysicalDevice() {
-  auto rate_device = [&](vk::PhysicalDevice device) -> uint32_t {
-    auto device_properties = device.getProperties();
-    auto device_features = device.getFeatures();
-
-    if (!device_features.geometryShader) return 0;
-
-    QueueFamilyIndices indices = findQueueFamilies(device);
-    if (!indices.isComplete()) return 0;
-
-    bool extensions_supported = checkDeviceExtensionSupport(device);
-    if (!extensions_supported) return 0;
-
-    SwapChainSupportDetails swap_chain_support = querySwapChainSupport(device);
-    bool swap_chain_adequate = !swap_chain_support.formats.empty() && !swap_chain_support.presentModes.empty();
-    if (!swap_chain_adequate) return 0;
-
-    auto supported_features = device.getFeatures();
-    if (!supported_features.samplerAnisotropy) return 0;
-
-    int score = 0;
-
-    if (device_properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
-      score += 10000;
-    }
-
-    score += device_properties.limits.maxImageDimension2D;
-
-    auto memory_props = device.getMemoryProperties();
-    auto heaps = memory_props.memoryHeaps;
-
-    for (const auto &heap : heaps) {
-      if (heap.flags & vk::MemoryHeapFlagBits::eDeviceLocal) {
-        score += heap.size;
-      }
-    }
-
-    return score;
-  };
-
-  auto devices = instance_.enumeratePhysicalDevices();
-  if (devices.empty()) {
-    throw std::runtime_error("failed to find GPUs with Vulkan support!");
-  }
-
-  physicalDevice_ = *std::max_element(devices.begin(), devices.end(), [&](vk::PhysicalDevice d0, vk::PhysicalDevice d1) -> bool {
-    return rate_device(d0) < rate_device(d1);
-  });
-
-  if (rate_device(physicalDevice_) == 0) {
-    throw std::runtime_error("failed to find a suitable GPU!");
-  }
-
-  sampleCount_ = getMaxUsableSampleCount();
-}
-
-bool Engine::checkDeviceExtensionSupport(vk::PhysicalDevice device) {
-  auto available_extensions = device.enumerateDeviceExtensionProperties();
-  std::set<std::string_view> required_extensions(deviceExtensions_.begin(), deviceExtensions_.end());
-
-  for (const auto &extension : available_extensions) {
-    required_extensions.erase(extension.extensionName);
-  }
-
-  return required_extensions.empty();
-}
-
 void Engine::createLogicalDevice() {
-  QueueFamilyIndices indices = findQueueFamilies(physicalDevice_);
+  auto indices = Initialisers::findQueueFamilies(physicalDevice_, surface_);
 
   std::vector<vk::DeviceQueueCreateInfo> queue_create_infos = {};
   std::set<uint32_t> unique_queue_families = {indices.graphicsFamily.value(), indices.presentFamily.value(),
@@ -340,7 +216,7 @@ vk::Extent2D Engine::chooseSwapExtent(const vk::SurfaceCapabilitiesKHR &capabili
 }
 
 void Engine::createSwapChain() {
-  SwapChainSupportDetails swap_chain_support = querySwapChainSupport(physicalDevice_);
+  auto swap_chain_support = Initialisers::querySwapChainSupport(physicalDevice_, surface_);
 
   uint32_t image_count = swap_chain_support.capabilities.minImageCount + 1;
   if (swap_chain_support.capabilities.maxImageCount > 0 && image_count > swap_chain_support.capabilities.maxImageCount) {
@@ -359,7 +235,7 @@ void Engine::createSwapChain() {
   create_info.imageArrayLayers = 1;
   create_info.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
 
-  QueueFamilyIndices indices = findQueueFamilies(physicalDevice_);
+  auto indices = Initialisers::findQueueFamilies(physicalDevice_, surface_);
   std::set<uint32_t> all_queue_family_indices = {indices.graphicsFamily.value(), indices.presentFamily.value(),
                                                  indices.transferFamily.value()};
   std::vector<uint32_t> queue_family_indices(all_queue_family_indices.size());
@@ -714,7 +590,7 @@ void Engine::createFramebuffers() {
 }
 
 void Engine::createCommandPools() {
-  QueueFamilyIndices queue_family_indices = findQueueFamilies(physicalDevice_);
+  auto queue_family_indices = Initialisers::findQueueFamilies(physicalDevice_, surface_);
 
   vk::CommandPoolCreateInfo graphics_pool_info = {};
   graphics_pool_info.queueFamilyIndex = queue_family_indices.graphicsFamily.value();

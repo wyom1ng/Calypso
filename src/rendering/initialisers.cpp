@@ -3,6 +3,10 @@
 //
 
 #include "initialisers.h"
+#include <filesystem>
+#include <functional>
+#include <set>
+#include <stb_image.h>
 
 namespace rendering {
 
@@ -11,7 +15,8 @@ void Initialisers::initDispatchLoader(const vk::DynamicLoader &dynamicLoader) {
   VULKAN_HPP_DEFAULT_DISPATCHER.init(vk_get_instance_proc_addr);
 }
 
-GLFWwindow *Initialisers::createWindow(void *user, std::function<void(GLFWwindow *, int, int)> framebufferResizeCallback, uint16_t initialWidth, uint16_t initialHeight) {
+GLFWwindow *Initialisers::createWindow(void *user, std::function<void(GLFWwindow *, int, int)> framebufferResizeCallback,
+                                       uint16_t initialWidth, uint16_t initialHeight) {
   glfwInit();
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
@@ -164,6 +169,142 @@ vk::SurfaceKHR Initialisers::createSurface(const vk::Instance &instance, GLFWwin
   }
 
   return c_surface;
+}
+
+type::SwapChainSupportDetails Initialisers::querySwapChainSupport(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface) {
+  type::SwapChainSupportDetails details = {};
+
+  details.capabilities = device.getSurfaceCapabilitiesKHR(surface);
+  details.formats = device.getSurfaceFormatsKHR(surface);
+  details.presentModes = device.getSurfacePresentModesKHR(surface);
+
+  return details;
+}
+
+type::QueueFamilyIndices Initialisers::findQueueFamilies(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface) {
+  type::QueueFamilyIndices indices;
+
+  auto queue_families = device.getQueueFamilyProperties();
+
+  uint32_t i = 0;
+  for (const auto &queue_family : queue_families) {
+    if (queue_family.queueFlags & vk::QueueFlagBits::eGraphics) {
+      indices.graphicsFamily = i;
+    }
+
+    if (queue_family.queueFlags & vk::QueueFlagBits::eTransfer && !(queue_family.queueFlags & vk::QueueFlagBits::eGraphics)) {
+      indices.transferFamily = i;
+    }
+
+    auto present_support = device.getSurfaceSupportKHR(i, surface);
+
+    if (present_support) {
+      indices.presentFamily = i;
+    }
+
+    if (indices.isComplete()) {
+      break;
+    }
+
+    i++;
+  }
+
+  return indices;
+}
+
+vk::PhysicalDevice Initialisers::createPhysicalDevice(const vk::Instance &instance, const vk::SurfaceKHR &surface,
+                                                      const std::vector<const char *> &deviceExtensions) {
+  auto devices = instance.enumeratePhysicalDevices();
+  if (devices.empty()) {
+    throw std::runtime_error("failed to find GPUs with Vulkan support!");
+  }
+
+  auto physical_device = *std::max_element(devices.begin(), devices.end(), [&](vk::PhysicalDevice d0, vk::PhysicalDevice d1) -> bool {
+    return rateDevice(d0, surface, deviceExtensions) < rateDevice(d1, surface, deviceExtensions);
+  });
+
+  if (rateDevice(physical_device, surface, deviceExtensions) == 0) {
+    throw std::runtime_error("failed to find a suitable GPU!");
+  }
+  
+  return physical_device;
+}
+
+vk::SampleCountFlagBits Initialisers::getMaxUsableSampleCount(const vk::PhysicalDevice &physicalDevice) {
+  auto physical_device_properties = physicalDevice.getProperties();
+
+  vk::SampleCountFlags counts =
+      physical_device_properties.limits.framebufferColorSampleCounts & physical_device_properties.limits.framebufferDepthSampleCounts;
+  if (counts & vk::SampleCountFlagBits::e64) {
+    return vk::SampleCountFlagBits::e64;
+  }
+  if (counts & vk::SampleCountFlagBits::e32) {
+    return vk::SampleCountFlagBits::e32;
+  }
+  if (counts & vk::SampleCountFlagBits::e16) {
+    return vk::SampleCountFlagBits::e16;
+  }
+  if (counts & vk::SampleCountFlagBits::e8) {
+    return vk::SampleCountFlagBits::e8;
+  }
+  if (counts & vk::SampleCountFlagBits::e4) {
+    return vk::SampleCountFlagBits::e4;
+  }
+  if (counts & vk::SampleCountFlagBits::e4) {
+    return vk::SampleCountFlagBits::e4;
+  }
+
+  return vk::SampleCountFlagBits::e1;
+}
+
+bool Initialisers::checkDeviceExtensionSupport(const vk::PhysicalDevice &device, const std::vector<const char *> &deviceExtensions) {
+  auto available_extensions = device.enumerateDeviceExtensionProperties();
+  std::set<std::string_view> required_extensions(deviceExtensions.begin(), deviceExtensions.end());
+
+  for (const auto &extension : available_extensions) {
+    required_extensions.erase(extension.extensionName);
+  }
+
+  return required_extensions.empty();
+}
+
+uint32_t Initialisers::rateDevice(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface, const std::vector<const char *> &deviceExtensions) {
+  auto device_properties = physicalDevice.getProperties();
+  auto device_features = physicalDevice.getFeatures();
+
+  if (!device_features.geometryShader) return 0;
+
+  auto indices = findQueueFamilies(physicalDevice, surface);
+  if (!indices.isComplete()) return 0;
+
+  bool extensions_supported = checkDeviceExtensionSupport(physicalDevice, deviceExtensions);
+  if (!extensions_supported) return 0;
+
+  auto swap_chain_support = querySwapChainSupport(physicalDevice, surface);
+  bool swap_chain_adequate = !swap_chain_support.formats.empty() && !swap_chain_support.presentModes.empty();
+  if (!swap_chain_adequate) return 0;
+
+  auto supported_features = physicalDevice.getFeatures();
+  if (!supported_features.samplerAnisotropy) return 0;
+
+  int score = 0;
+
+  if (device_properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
+    score += 10000;
+  }
+
+  score += device_properties.limits.maxImageDimension2D;
+
+  auto memory_props = physicalDevice.getMemoryProperties();
+  auto heaps = memory_props.memoryHeaps;
+
+  for (const auto &heap : heaps) {
+    if (heap.flags & vk::MemoryHeapFlagBits::eDeviceLocal) {
+      score += heap.size;
+    }
+  }
+
+  return score;
 }
 
 }  // namespace rendering

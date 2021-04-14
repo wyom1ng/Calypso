@@ -36,4 +36,6 @@ std::array<vk::VertexInputAttributeDescription, 3> Vertex::getAttributeDescripti
   return attribute_descriptions;
 }
 
-}  // namespace rendering::types
+bool Vertex::operator==(const Vertex &other) const { return pos == other.pos && colour == other.colour && texCoord == other.texCoord; }
+
+}  // namespace rendering::type
