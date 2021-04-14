@@ -257,6 +257,58 @@ vk::SampleCountFlagBits Initialisers::getMaxUsableSampleCount(const vk::Physical
   return vk::SampleCountFlagBits::e1;
 }
 
+vk::Device Initialisers::createLogicalDevice(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface,
+                                             bool enableValidationLayers, const std::vector<const char *> &validationLayers,
+                                             const std::vector<const char *> &deviceExtensions) {
+  auto indices = Initialisers::findQueueFamilies(physicalDevice, surface);
+
+  std::vector<vk::DeviceQueueCreateInfo> queue_create_infos = {};
+  std::set<uint32_t> unique_queue_families = {indices.graphicsFamily.value(), indices.presentFamily.value(),
+                                              indices.transferFamily.value()};
+
+  float queue_priority = 1.0f;
+  for (uint32_t queue_family : unique_queue_families) {
+    vk::DeviceQueueCreateInfo queue_create_info = {};
+    queue_create_info.queueFamilyIndex = queue_family;
+    queue_create_info.setQueuePriorities(queue_priority);
+    queue_create_infos.emplace_back(queue_create_info);
+  }
+
+  vk::PhysicalDeviceFeatures device_features = {};
+  device_features.samplerAnisotropy = VK_TRUE;
+  device_features.fillModeNonSolid = VK_TRUE;
+  device_features.sampleRateShading = VK_TRUE;
+
+  vk::DeviceCreateInfo create_info = {};
+
+  create_info.setQueueCreateInfos(queue_create_infos);
+  create_info.setPEnabledFeatures(&device_features);
+
+  if (enableValidationLayers) {
+    create_info.setPEnabledLayerNames(validationLayers);
+  }
+
+  create_info.setPEnabledExtensionNames(deviceExtensions);
+
+  vk::Device device;
+  if (physicalDevice.createDevice(&create_info, nullptr, &device) != vk::Result::eSuccess) {
+    throw std::runtime_error("failed to create logical device!");
+  }
+  VULKAN_HPP_DEFAULT_DISPATCHER.init(device);
+  
+  return device;
+}
+
+std::array<vk::Queue, 3> Initialisers::createQueues(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface, const vk::Device &device) {
+  auto indices = Initialisers::findQueueFamilies(physicalDevice, surface);
+
+  auto graphics_queue = device.getQueue(indices.graphicsFamily.value(), 0);
+  auto present_queue = device.getQueue(indices.presentFamily.value(), 0);
+  auto transfer_queue = device.getQueue(indices.transferFamily.value(), 0);
+  
+  return {graphics_queue, present_queue, transfer_queue};
+}
+
 bool Initialisers::checkDeviceExtensionSupport(const vk::PhysicalDevice &device, const std::vector<const char *> &deviceExtensions) {
   auto available_extensions = device.enumerateDeviceExtensionProperties();
   std::set<std::string_view> required_extensions(deviceExtensions.begin(), deviceExtensions.end());

@@ -41,6 +41,10 @@ class Initialisers {
   
   static vk::SampleCountFlagBits getMaxUsableSampleCount(const vk::PhysicalDevice &physicalDevice);
   
+  static vk::Device createLogicalDevice(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface, bool enableValidationLayers, const std::vector<const char *> &validationLayers, const std::vector<const char *> &deviceExtensions);
+  
+  static std::array<vk::Queue, 3> createQueues(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface, const vk::Device &device);
+  
  private:
   static bool checkDeviceExtensionSupport(const vk::PhysicalDevice &device, const std::vector<const char *> &deviceExtensions);
   

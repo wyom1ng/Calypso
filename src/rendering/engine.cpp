@@ -79,7 +79,13 @@ void Engine::initVulkan() {
   surface_ = Initialisers::createSurface(instance_, window_);
   physicalDevice_ = Initialisers::createPhysicalDevice(instance_, surface_, deviceExtensions_);
   sampleCount_ = Initialisers::getMaxUsableSampleCount(physicalDevice_);
-  createLogicalDevice();
+  device_ = Initialisers::createLogicalDevice(physicalDevice_, surface_, ENABLE_VALIDATION_LAYERS, validationLayers_, deviceExtensions_);
+  
+  auto [graphicsQueue, presentQueue, transferQueue] = Initialisers::createQueues(physicalDevice_, surface_, device_);
+  graphicsQueue_ = graphicsQueue;
+  presentQueue_ = presentQueue;
+  transferQueue_ = transferQueue;
+  
   createAllocator();
   createSwapChain();
   createImageViews();
@@ -126,47 +132,6 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL Engine::debugCallback(VkDebugUtilsMessageSeveri
   }
 
   return VK_FALSE;
-}
-
-void Engine::createLogicalDevice() {
-  auto indices = Initialisers::findQueueFamilies(physicalDevice_, surface_);
-
-  std::vector<vk::DeviceQueueCreateInfo> queue_create_infos = {};
-  std::set<uint32_t> unique_queue_families = {indices.graphicsFamily.value(), indices.presentFamily.value(),
-                                              indices.transferFamily.value()};
-
-  float queue_priority = 1.0f;
-  for (uint32_t queue_family : unique_queue_families) {
-    vk::DeviceQueueCreateInfo queue_create_info = {};
-    queue_create_info.queueFamilyIndex = queue_family;
-    queue_create_info.setQueuePriorities(queue_priority);
-    queue_create_infos.emplace_back(queue_create_info);
-  }
-
-  vk::PhysicalDeviceFeatures device_features = {};
-  device_features.samplerAnisotropy = VK_TRUE;
-  device_features.fillModeNonSolid = VK_TRUE;
-  device_features.sampleRateShading = VK_TRUE;
-
-  vk::DeviceCreateInfo create_info = {};
-
-  create_info.setQueueCreateInfos(queue_create_infos);
-  create_info.setPEnabledFeatures(&device_features);
-
-  create_info.setPEnabledExtensionNames(deviceExtensions_);
-
-  if (ENABLE_VALIDATION_LAYERS) {
-    create_info.setPEnabledLayerNames(validationLayers_);
-  }
-
-  if (physicalDevice_.createDevice(&create_info, nullptr, &device_) != vk::Result::eSuccess) {
-    throw std::runtime_error("failed to create logical device!");
-  }
-  VULKAN_HPP_DEFAULT_DISPATCHER.init(device_);
-
-  graphicsQueue_ = device_.getQueue(indices.graphicsFamily.value(), 0);
-  presentQueue_ = device_.getQueue(indices.presentFamily.value(), 0);
-  transferQueue_ = device_.getQueue(indices.transferFamily.value(), 0);
 }
 
 void Engine::createAllocator() {
@@ -1225,7 +1190,7 @@ void Engine::updateUniformBuffer(uint32_t currentImage) {
   uniform_buffer_object.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   uniform_buffer_object.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   uniform_buffer_object.proj =
-      glm::perspective(glm::radians(45.0f), swapChainExtent_.width / static_cast<float>(swapChainExtent_.height), 0.1f, 10.0f);
+      glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainExtent_.width) / static_cast<float>(swapChainExtent_.height), 0.1f, 10.0f);
 
   uniform_buffer_object.proj[1][1] *= -1;  // y coordinate is inverted, flip the signed bit
 
@@ -1256,7 +1221,7 @@ void Engine::drawFrame() {
   if (imagesInFlight_[image_index]) {
     if (device_.waitForFences(imagesInFlight_[image_index], VK_TRUE, UINT64_MAX) != vk::Result::eSuccess) {
       throw std::runtime_error("wait for fences timed out");
-    };
+    }
   }
   // Mark the image as now being in use by this frame
   imagesInFlight_[image_index] = inFlightFences_[currentFrame_];
@@ -1274,7 +1239,7 @@ void Engine::drawFrame() {
 
   if (device_.resetFences(1, &inFlightFences_[currentFrame_]) != vk::Result::eSuccess) {
     throw std::runtime_error("reset fences failed!");
-  };
+  }
 
   if (graphicsQueue_.submit(1, &submit_info, inFlightFences_[currentFrame_]) != vk::Result::eSuccess) {
     throw std::runtime_error("failed to submit draw command buffer!");
