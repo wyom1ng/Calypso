@@ -155,8 +155,6 @@ class Engine {
                                                         VkDebugUtilsMessageTypeFlagsEXT messageType,
                                                         const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData);
 
-  void createSurface();
-
   QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device);
 
   SwapChainSupportDetails querySwapChainSupport(vk::PhysicalDevice device);

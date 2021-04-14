@@ -5,10 +5,12 @@
 #ifndef CALYPSO_INITIALISERS_H
 #define CALYPSO_INITIALISERS_H
 
+#define GLFW_INCLUDE_VULKAN
+
 #include <filesystem>
 #include <functional>
-#include <GLFW/glfw3.h>
 #include <stb_image.h>
+#include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
 
 namespace rendering {
@@ -24,10 +26,14 @@ class Initialisers {
   static std::vector<const char *> getRequiredExtensions(bool enableValidationLayers);
 
   static vk::DebugUtilsMessengerCreateInfoEXT getDebugMessengerCreateInfo(PFN_vkDebugUtilsMessengerCallbackEXT debugCallback);
-  
-  static vk::Instance createInstance(bool enableValidationLayers, std::vector<const char *> validationLayers, PFN_vkDebugUtilsMessengerCallbackEXT debugCallback);
 
-  static vk::DebugUtilsMessengerEXT setupDebugMessenger(const vk::Instance &instance, bool enableValidationLayers, PFN_vkDebugUtilsMessengerCallbackEXT debugCallback);
+  static vk::Instance createInstance(bool enableValidationLayers, const std::vector<const char *> &validationLayers,
+                                     PFN_vkDebugUtilsMessengerCallbackEXT debugCallback);
+
+  static vk::DebugUtilsMessengerEXT setupDebugMessenger(const vk::Instance &instance, bool enableValidationLayers,
+                                                        PFN_vkDebugUtilsMessengerCallbackEXT debugCallback);
+
+  static vk::SurfaceKHR createSurface(const vk::Instance &instance, GLFWwindow *window);
 };
 
 }  // namespace rendering

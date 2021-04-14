@@ -66,7 +66,7 @@ void Engine::framebufferResizeCallback(GLFWwindow *window, int, int) {
 void Engine::initVulkan() {
   instance_ = Initialisers::createInstance(ENABLE_VALIDATION_LAYERS, validationLayers_, Engine::debugCallback);
   debugMessenger_ = Initialisers::setupDebugMessenger(instance_, ENABLE_VALIDATION_LAYERS, Engine::debugCallback);
-  createSurface();
+  surface_ = Initialisers::createSurface(instance_, window_);
   pickPhysicalDevice();
   createLogicalDevice();
   createAllocator();
@@ -156,16 +156,6 @@ Engine::SwapChainSupportDetails Engine::querySwapChainSupport(vk::PhysicalDevice
   details.presentModes = device.getSurfacePresentModesKHR(surface_);
 
   return details;
-}
-
-void Engine::createSurface() {
-  VkSurfaceKHR c_surface = surface_;
-  if (glfwCreateWindowSurface(instance_, window_, nullptr, &c_surface) != VK_SUCCESS) {
-    throw std::runtime_error("failed to create window surface!");
-  }
-
-  // Remember to cast back to vk::SurfaceKHR so vulkan keeps the handle
-  surface_ = vk::SurfaceKHR(c_surface);
 }
 
 vk::SampleCountFlagBits Engine::getMaxUsableSampleCount() {

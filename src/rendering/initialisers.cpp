@@ -104,7 +104,7 @@ vk::DebugUtilsMessengerCreateInfoEXT Initialisers::getDebugMessengerCreateInfo(P
   return create_info;
 }
 
-vk::Instance Initialisers::createInstance(bool enableValidationLayers, std::vector<const char *> validationLayers, PFN_vkDebugUtilsMessengerCallbackEXT debugCallback) {
+vk::Instance Initialisers::createInstance(bool enableValidationLayers, const std::vector<const char *> &validationLayers, PFN_vkDebugUtilsMessengerCallbackEXT debugCallback) {
   if (enableValidationLayers && !checkValidationLayerSupport(validationLayers)) {
     throw std::runtime_error("validation layers requested, but not available!");
   }
@@ -155,6 +155,15 @@ vk::DebugUtilsMessengerEXT Initialisers::setupDebugMessenger(const vk::Instance 
   }
 
   return debug_messenger;
+}
+
+vk::SurfaceKHR Initialisers::createSurface(const vk::Instance &instance, GLFWwindow *window) {
+  VkSurfaceKHR c_surface;
+  if (glfwCreateWindowSurface(instance, window, nullptr, &c_surface) != VK_SUCCESS) {
+    throw std::runtime_error("failed to create window surface!");
+  }
+
+  return c_surface;
 }
 
 }  // namespace rendering
