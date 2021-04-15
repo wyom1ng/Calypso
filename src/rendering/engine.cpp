@@ -86,7 +86,7 @@ void Engine::initVulkan() {
   presentQueue_ = presentQueue;
   transferQueue_ = transferQueue;
   
-  createAllocator();
+  allocator_ = Initialisers::createAllocator(instance_, physicalDevice_, device_);
   createSwapChain();
   createImageViews();
   createRenderPass();
@@ -132,16 +132,6 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL Engine::debugCallback(VkDebugUtilsMessageSeveri
   }
 
   return VK_FALSE;
-}
-
-void Engine::createAllocator() {
-  VmaAllocatorCreateInfo allocator_info = {};
-  allocator_info.vulkanApiVersion = VK_API_VERSION_1_2;
-  allocator_info.physicalDevice = physicalDevice_;
-  allocator_info.device = device_;
-  allocator_info.instance = instance_;
-
-  vmaCreateAllocator(&allocator_info, &allocator_);
 }
 
 vk::SurfaceFormatKHR Engine::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats) {

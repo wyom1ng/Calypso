@@ -7,6 +7,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 
+#include <vk_mem_alloc.h>
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
 #include "type/misc.h"
@@ -15,6 +16,10 @@ namespace rendering {
 
 class Initialisers {
  public:
+  struct SwapchainInit {
+    
+  };
+  
   static void initDispatchLoader(const vk::DynamicLoader &dynamicLoader);
   
   static GLFWwindow *createWindow(void *user, std::function<void(GLFWwindow *window, int width, int height)> framebufferResizeCallback, uint16_t initialWidth, uint16_t initialHeight);
@@ -36,19 +41,26 @@ class Initialisers {
   static type::SwapChainSupportDetails querySwapChainSupport(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface);
 
   static type::QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface);
-  
-  static vk::PhysicalDevice createPhysicalDevice(const vk::Instance &instance, const vk::SurfaceKHR &surface, const std::vector<const char *> &deviceExtensions);
-  
+
+  static vk::PhysicalDevice createPhysicalDevice(const vk::Instance &instance, const vk::SurfaceKHR &surface,
+                                                 const std::vector<const char *> &deviceExtensions);
+
   static vk::SampleCountFlagBits getMaxUsableSampleCount(const vk::PhysicalDevice &physicalDevice);
-  
-  static vk::Device createLogicalDevice(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface, bool enableValidationLayers, const std::vector<const char *> &validationLayers, const std::vector<const char *> &deviceExtensions);
-  
-  static std::array<vk::Queue, 3> createQueues(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface, const vk::Device &device);
+
+  static vk::Device createLogicalDevice(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface,
+                                        bool enableValidationLayers, const std::vector<const char *> &validationLayers,
+                                        const std::vector<const char *> &deviceExtensions);
+
+  static std::array<vk::Queue, 3> createQueues(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface,
+                                               const vk::Device &device);
+
+  static VmaAllocator createAllocator(const vk::Instance &instance, const vk::PhysicalDevice &physicalDevice, const vk::Device &device);
   
  private:
   static bool checkDeviceExtensionSupport(const vk::PhysicalDevice &device, const std::vector<const char *> &deviceExtensions);
-  
-  static uint32_t rateDevice(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface, const std::vector<const char *> &deviceExtensions);
+
+  static uint32_t rateDevice(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface,
+                             const std::vector<const char *> &deviceExtensions);
 };
 
 }  // namespace rendering

@@ -309,6 +309,20 @@ std::array<vk::Queue, 3> Initialisers::createQueues(const vk::PhysicalDevice &ph
   return {graphics_queue, present_queue, transfer_queue};
 }
 
+VmaAllocator Initialisers::createAllocator(const vk::Instance &instance, const vk::PhysicalDevice &physicalDevice,
+                                           const vk::Device &device) {
+  VmaAllocatorCreateInfo allocator_info = {};
+  allocator_info.vulkanApiVersion = VK_API_VERSION_1_2;
+  allocator_info.instance = instance;
+  allocator_info.physicalDevice = physicalDevice;
+  allocator_info.device = device;
+
+  VmaAllocator allocator;
+  vmaCreateAllocator(&allocator_info, &allocator);
+  
+  return allocator;
+}
+
 bool Initialisers::checkDeviceExtensionSupport(const vk::PhysicalDevice &device, const std::vector<const char *> &deviceExtensions) {
   auto available_extensions = device.enumerateDeviceExtensionProperties();
   std::set<std::string_view> required_extensions(deviceExtensions.begin(), deviceExtensions.end());
@@ -339,7 +353,7 @@ uint32_t Initialisers::rateDevice(const vk::PhysicalDevice &physicalDevice, cons
   auto supported_features = physicalDevice.getFeatures();
   if (!supported_features.samplerAnisotropy) return 0;
 
-  int score = 0;
+  uint32_t score = 0;
 
   if (device_properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu) {
     score += 10000;
