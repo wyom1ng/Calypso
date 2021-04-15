@@ -16,6 +16,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
+#include "type/misc.h"
 #include "type/vertex.h"
 
 namespace rendering {
@@ -56,11 +57,9 @@ class Engine {
   vk::Queue presentQueue_;
   vk::Queue transferQueue_;
   vk::SurfaceKHR surface_;
-
-  vk::SwapchainKHR swapChain_;
-  std::vector<vk::Image> swapChainImages_;
-  vk::Format swapChainImageFormat_;
-  vk::Extent2D swapChainExtent_;
+  
+  
+  type::SwapchainData swapchainData_;
 
   std::vector<vk::ImageView> swapChainImageViews_;
   std::vector<vk::Framebuffer> swapChainFramebuffers_;
@@ -133,17 +132,9 @@ class Engine {
                                                         VkDebugUtilsMessageTypeFlagsEXT messageType,
                                                         const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData);
 
-  static vk::SurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats);
-
-  static vk::PresentModeKHR chooseSwapPresentMode(const std::vector<vk::PresentModeKHR> &availablePresentModes);
-
-  vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR &capabilities);
-
-  void createSwapChain();
-
   void cleanupSwapChain();
 
-  void recreateSwapChain();
+  void recreateSwapchain();
 
   void createImageViews();
 

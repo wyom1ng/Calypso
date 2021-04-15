@@ -19,10 +19,17 @@ struct QueueFamilyIndices {
   [[nodiscard]] bool isComplete() const { return graphicsFamily.has_value() && presentFamily.has_value() && transferFamily.has_value(); }
 };
 
-struct SwapChainSupportDetails {
+struct SwapchainSupportDetails {
   vk::SurfaceCapabilitiesKHR capabilities;
   std::vector<vk::SurfaceFormatKHR> formats;
   std::vector<vk::PresentModeKHR> presentModes;
+};
+
+struct SwapchainData {
+  vk::SwapchainKHR swapchain;
+  std::vector<vk::Image> images;
+  vk::Format format;
+  vk::Extent2D extent;
 };
 
 }  // namespace rendering::type

@@ -87,7 +87,8 @@ void Engine::initVulkan() {
   transferQueue_ = transferQueue;
   
   allocator_ = Initialisers::createAllocator(instance_, physicalDevice_, device_);
-  createSwapChain();
+
+  swapchainData_ = Initialisers::createSwapchain(physicalDevice_, surface_, device_, window_);
   createImageViews();
   createRenderPass();
   createDescriptorSetLayout();
@@ -127,101 +128,15 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL Engine::debugCallback(VkDebugUtilsMessageSeveri
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
       logger->error(pCallbackData->pMessage);
       break;
-    default:
-      break;  // can't happen
   }
 
   return VK_FALSE;
 }
 
-vk::SurfaceFormatKHR Engine::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats) {
-  for (const auto &available_format : availableFormats) {
-    if (available_format.format == vk::Format::eB8G8R8A8Srgb && available_format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
-      return available_format;
-    }
-  }
-
-  return availableFormats.at(0);
-}
-
-vk::PresentModeKHR Engine::chooseSwapPresentMode(const std::vector<vk::PresentModeKHR> &availablePresentModes) {
-  if (std::find(availablePresentModes.begin(), availablePresentModes.end(), vk::PresentModeKHR::eImmediate) !=
-      availablePresentModes.end()) {
-    return vk::PresentModeKHR::eImmediate;
-  }
-
-  return vk::PresentModeKHR::eFifo;
-}
-
-vk::Extent2D Engine::chooseSwapExtent(const vk::SurfaceCapabilitiesKHR &capabilities) {
-  if (capabilities.currentExtent.width != UINT32_MAX) {
-    return capabilities.currentExtent;
-  }
-
-  int width;
-  int height;
-  glfwGetFramebufferSize(window_, &width, &height);
-
-  vk::Extent2D actual_extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
-
-  actual_extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actual_extent.width));
-  actual_extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actual_extent.height));
-
-  return actual_extent;
-}
-
-void Engine::createSwapChain() {
-  auto swap_chain_support = Initialisers::querySwapChainSupport(physicalDevice_, surface_);
-
-  uint32_t image_count = swap_chain_support.capabilities.minImageCount + 1;
-  if (swap_chain_support.capabilities.maxImageCount > 0 && image_count > swap_chain_support.capabilities.maxImageCount) {
-    image_count = swap_chain_support.capabilities.maxImageCount;
-  }
-
-  vk::SwapchainCreateInfoKHR create_info = {};
-  create_info.surface = surface_;
-
-  auto surface_format = chooseSwapSurfaceFormat(swap_chain_support.formats);
-  vk::Extent2D extent = chooseSwapExtent(swap_chain_support.capabilities);
-  create_info.minImageCount = image_count;
-  create_info.imageFormat = surface_format.format;
-  create_info.imageColorSpace = surface_format.colorSpace;
-  create_info.imageExtent = extent;
-  create_info.imageArrayLayers = 1;
-  create_info.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
-
-  auto indices = Initialisers::findQueueFamilies(physicalDevice_, surface_);
-  std::set<uint32_t> all_queue_family_indices = {indices.graphicsFamily.value(), indices.presentFamily.value(),
-                                                 indices.transferFamily.value()};
-  std::vector<uint32_t> queue_family_indices(all_queue_family_indices.size());
-  queue_family_indices.assign(all_queue_family_indices.begin(), all_queue_family_indices.end());
-
-  create_info.imageSharingMode = vk::SharingMode::eConcurrent;
-  create_info.setQueueFamilyIndices(queue_family_indices);
-
-  create_info.preTransform = swap_chain_support.capabilities.currentTransform;
-  create_info.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
-
-  auto present_mode = chooseSwapPresentMode(swap_chain_support.presentModes);
-  create_info.presentMode = present_mode;
-  create_info.clipped = VK_TRUE;
-
-  create_info.oldSwapchain = nullptr;
-
-  if (device_.createSwapchainKHR(&create_info, nullptr, &swapChain_) != vk::Result::eSuccess) {
-    throw std::runtime_error("failed to create swap chain!");
-  }
-
-  swapChainImages_ = device_.getSwapchainImagesKHR(swapChain_);
-
-  swapChainImageFormat_ = surface_format.format;
-  swapChainExtent_ = extent;
-}
-
 void Engine::cleanupSwapChain() {
   for (auto &framebuffer : swapChainFramebuffers_) device_.destroyFramebuffer(framebuffer, nullptr);
 
-  for (std::size_t i = 0; i < swapChainImages_.size(); i++) {
+  for (std::size_t i = 0; i < swapchainData_.images.size(); i++) {
     vmaDestroyBuffer(allocator_, uniformBuffers_[i], uniformBuffersAllocation_[i]);
   }
 
@@ -240,10 +155,10 @@ void Engine::cleanupSwapChain() {
 
   device_.destroyRenderPass(renderPass_, nullptr);
   for (auto &image_view : swapChainImageViews_) device_.destroyImageView(image_view, nullptr);
-  device_.destroySwapchainKHR(swapChain_, nullptr);
+  device_.destroySwapchainKHR(swapchainData_.swapchain, nullptr);
 }
 
-void Engine::recreateSwapChain() {
+void Engine::recreateSwapchain() {
   int width = 0;
   int height = 0;
   glfwGetFramebufferSize(window_, &width, &height);
@@ -256,7 +171,7 @@ void Engine::recreateSwapChain() {
 
   cleanupSwapChain();
 
-  createSwapChain();
+  swapchainData_ = Initialisers::createSwapchain(physicalDevice_, surface_, device_, window_);
   createImageViews();
   createRenderPass();
   createGraphicsPipeline();
@@ -270,10 +185,10 @@ void Engine::recreateSwapChain() {
 }
 
 void Engine::createImageViews() {
-  swapChainImageViews_.resize(swapChainImages_.size());
+  swapChainImageViews_.resize(swapchainData_.images.size());
   std::size_t i = 0;
-  for (auto &swap_chain_image : swapChainImages_) {
-    swapChainImageViews_[i] = createImageView(swap_chain_image, swapChainImageFormat_, vk::ImageAspectFlagBits::eColor, 1);
+  for (auto &swap_chain_image : swapchainData_.images) {
+    swapChainImageViews_[i] = createImageView(swap_chain_image, swapchainData_.format, vk::ImageAspectFlagBits::eColor, 1);
     i++;
   }
 }
@@ -294,7 +209,7 @@ vk::ShaderModule Engine::createShaderModule(const std::vector<std::byte> &code) 
 
 void Engine::createRenderPass() {
   vk::AttachmentDescription color_attachment = {};
-  color_attachment.format = swapChainImageFormat_;
+  color_attachment.format = swapchainData_.format;
   color_attachment.samples = sampleCount_;
   color_attachment.loadOp = vk::AttachmentLoadOp::eClear;
   color_attachment.storeOp = vk::AttachmentStoreOp::eStore;
@@ -322,7 +237,7 @@ void Engine::createRenderPass() {
   depth_attachment_ref.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 
   vk::AttachmentDescription color_attachment_resolve = {};
-  color_attachment_resolve.format = swapChainImageFormat_;
+  color_attachment_resolve.format = swapchainData_.format;
   color_attachment_resolve.samples = vk::SampleCountFlagBits::e1;
   color_attachment_resolve.loadOp = vk::AttachmentLoadOp::eDontCare;
   color_attachment_resolve.storeOp = vk::AttachmentStoreOp::eStore;
@@ -415,14 +330,14 @@ void Engine::createGraphicsPipeline() {
   vk::Viewport viewport = {};
   viewport.x = 0.0f;
   viewport.y = 0.0f;
-  viewport.width = static_cast<float>(swapChainExtent_.width);
-  viewport.height = static_cast<float>(swapChainExtent_.height);
+  viewport.width = static_cast<float>(swapchainData_.extent.width);
+  viewport.height = static_cast<float>(swapchainData_.extent.height);
   viewport.minDepth = 0.0f;
   viewport.maxDepth = 1.0f;
 
   vk::Rect2D scissor = {};
   scissor.offset = vk::Offset2D(0, 0);
-  scissor.extent = swapChainExtent_;
+  scissor.extent = swapchainData_.extent;
 
   vk::PipelineViewportStateCreateInfo viewport_state = {};
   viewport_state.setViewports(viewport);
@@ -532,8 +447,8 @@ void Engine::createFramebuffers() {
     vk::FramebufferCreateInfo framebuffer_info = {};
     framebuffer_info.renderPass = renderPass_;
     framebuffer_info.setAttachments(attachments);
-    framebuffer_info.width = swapChainExtent_.width;
-    framebuffer_info.height = swapChainExtent_.height;
+    framebuffer_info.width = swapchainData_.extent.width;
+    framebuffer_info.height = swapchainData_.extent.height;
     framebuffer_info.layers = 1;
 
     if (device_.createFramebuffer(&framebuffer_info, nullptr, &swapChainFramebuffers_[i]) != vk::Result::eSuccess) {
@@ -565,9 +480,9 @@ void Engine::createCommandPools() {
 }
 
 void Engine::createColourResources() {
-  auto colour_format = swapChainImageFormat_;
+  auto colour_format = swapchainData_.format;
 
-  colourImage_ = createImage(swapChainExtent_.width, swapChainExtent_.height, 1, sampleCount_, colour_format, vk::ImageTiling::eOptimal,
+  colourImage_ = createImage(swapchainData_.extent.width, swapchainData_.extent.height, 1, sampleCount_, colour_format, vk::ImageTiling::eOptimal,
                              vk::ImageUsageFlagBits::eTransientAttachment | vk::ImageUsageFlagBits::eColorAttachment,
                              vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, colourImageAllocation_);
   colourImageView_ = createImageView(colourImage_, colour_format, vk::ImageAspectFlagBits::eColor, 1);
@@ -605,7 +520,7 @@ void Engine::createDepthResources() {
     throw std::runtime_error("failed to find supported format!");
   }
 
-  depthImage_ = createImage(swapChainExtent_.width, swapChainExtent_.height, 1, sampleCount_, depth_format.value(),
+  depthImage_ = createImage(swapchainData_.extent.width, swapchainData_.extent.height, 1, sampleCount_, depth_format.value(),
                             vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
                             vk::MemoryPropertyFlagBits::eDeviceLocal, VMA_MEMORY_USAGE_GPU_ONLY, depthImageAllocation_);
   depthImageView_ = createImageView(depthImage_, depth_format.value(), vk::ImageAspectFlagBits::eDepth, 1);
@@ -1028,10 +943,10 @@ void Engine::createIndexBuffer() {
 void Engine::createUniformBuffers() {
   vk::DeviceSize buffer_size = sizeof(UniformBufferObject);
 
-  uniformBuffers_.resize(swapChainImages_.size());
-  uniformBuffersAllocation_.resize(swapChainImages_.size());
+  uniformBuffers_.resize(swapchainData_.images.size());
+  uniformBuffersAllocation_.resize(swapchainData_.images.size());
 
-  for (std::size_t i = 0; i < swapChainImages_.size(); i++) {
+  for (std::size_t i = 0; i < swapchainData_.images.size(); i++) {
     uniformBuffers_[i] =
         createBuffer(buffer_size, vk::BufferUsageFlagBits::eUniformBuffer,
                      vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, uniformBuffersAllocation_[i]);
@@ -1041,13 +956,13 @@ void Engine::createUniformBuffers() {
 void Engine::createDescriptorPool() {
   std::array<vk::DescriptorPoolSize, 2> pool_sizes = {};
   pool_sizes[0].type = vk::DescriptorType::eUniformBuffer;
-  pool_sizes[0].descriptorCount = static_cast<uint32_t>(swapChainImages_.size());
+  pool_sizes[0].descriptorCount = static_cast<uint32_t>(swapchainData_.images.size());
   pool_sizes[1].type = vk::DescriptorType::eCombinedImageSampler;
-  pool_sizes[1].descriptorCount = static_cast<uint32_t>(swapChainImages_.size());
+  pool_sizes[1].descriptorCount = static_cast<uint32_t>(swapchainData_.images.size());
 
   vk::DescriptorPoolCreateInfo pool_info = {};
   pool_info.setPoolSizes(pool_sizes);
-  pool_info.maxSets = static_cast<uint32_t>(swapChainImages_.size());
+  pool_info.maxSets = static_cast<uint32_t>(swapchainData_.images.size());
 
   if (device_.createDescriptorPool(&pool_info, nullptr, &descriptorPool_) != vk::Result::eSuccess) {
     throw std::runtime_error("failed to create descriptor pool!");
@@ -1055,13 +970,13 @@ void Engine::createDescriptorPool() {
 }
 
 void Engine::createDescriptorSets() {
-  std::vector<vk::DescriptorSetLayout> layouts(swapChainImages_.size(), descriptorSetLayout_);
+  std::vector<vk::DescriptorSetLayout> layouts(swapchainData_.images.size(), descriptorSetLayout_);
   vk::DescriptorSetAllocateInfo alloc_info = {};
   alloc_info.descriptorPool = descriptorPool_;
-  alloc_info.descriptorSetCount = swapChainImages_.size();
+  alloc_info.descriptorSetCount = swapchainData_.images.size();
   alloc_info.setSetLayouts(layouts);
 
-  descriptorSets_.resize(swapChainImages_.size());
+  descriptorSets_.resize(swapchainData_.images.size());
   if (device_.allocateDescriptorSets(&alloc_info, descriptorSets_.data()) != vk::Result::eSuccess) {
     throw std::runtime_error("failed to allocate descriptor sets!");
   }
@@ -1126,7 +1041,7 @@ void Engine::createCommandBuffers() {
     render_pass_info.renderPass = renderPass_;
     render_pass_info.framebuffer = swapChainFramebuffers_.at(i);
     render_pass_info.renderArea.offset = vk::Offset2D(0, 0);
-    render_pass_info.renderArea.extent = swapChainExtent_;
+    render_pass_info.renderArea.extent = swapchainData_.extent;
 
     vk::ClearColorValue clear_color_value(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f});
     vk::ClearDepthStencilValue clear_depth_stencil_value(1.0f, 0);
@@ -1157,7 +1072,7 @@ void Engine::createCommandBuffers() {
 }
 
 void Engine::createSyncObjects() {
-  imagesInFlight_.resize(swapChainImages_.size(), {});
+  imagesInFlight_.resize(swapchainData_.images.size(), {});
 
   vk::SemaphoreCreateInfo semaphore_info = {};
   vk::FenceCreateInfo fence_info = {};
@@ -1180,7 +1095,7 @@ void Engine::updateUniformBuffer(uint32_t currentImage) {
   uniform_buffer_object.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   uniform_buffer_object.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   uniform_buffer_object.proj =
-      glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainExtent_.width) / static_cast<float>(swapChainExtent_.height), 0.1f, 10.0f);
+      glm::perspective(glm::radians(45.0f), static_cast<float>(swapchainData_.extent.width) / static_cast<float>(swapchainData_.extent.height), 0.1f, 10.0f);
 
   uniform_buffer_object.proj[1][1] *= -1;  // y coordinate is inverted, flip the signed bit
 
@@ -1196,9 +1111,9 @@ void Engine::drawFrame() {
   }
 
   uint32_t image_index;
-  vk::Result result = device_.acquireNextImageKHR(swapChain_, UINT64_MAX, imageAvailableSemaphores_[currentFrame_], nullptr, &image_index);
+  vk::Result result = device_.acquireNextImageKHR(swapchainData_.swapchain, UINT64_MAX, imageAvailableSemaphores_[currentFrame_], nullptr, &image_index);
   if (result == vk::Result::eErrorOutOfDateKHR) {
-    recreateSwapChain();
+    recreateSwapchain();
     return;
   }
   if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR) {
@@ -1239,7 +1154,7 @@ void Engine::drawFrame() {
 
   present_info.setWaitSemaphores(signal_semaphores);
 
-  std::array<vk::SwapchainKHR, 1> swap_chains = {swapChain_};
+  std::array<vk::SwapchainKHR, 1> swap_chains = {swapchainData_.swapchain};
   present_info.setSwapchains(swap_chains);
   present_info.setImageIndices(image_index);
 
@@ -1248,7 +1163,7 @@ void Engine::drawFrame() {
   result = presentQueue_.presentKHR(&present_info);
   if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || framebufferResized_) {
     framebufferResized_ = false;
-    recreateSwapChain();
+    recreateSwapchain();
   } else if (result != vk::Result::eSuccess) {
     throw std::runtime_error("failed to present swap chain image!");
   }

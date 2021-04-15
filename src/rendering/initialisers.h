@@ -6,6 +6,7 @@
 #define CALYPSO_INITIALISERS_H
 
 #define GLFW_INCLUDE_VULKAN
+#define NOMINMAX
 
 #include <vk_mem_alloc.h>
 #include <GLFW/glfw3.h>
@@ -16,9 +17,6 @@ namespace rendering {
 
 class Initialisers {
  public:
-  struct SwapchainInit {
-    
-  };
   
   static void initDispatchLoader(const vk::DynamicLoader &dynamicLoader);
   
@@ -38,7 +36,7 @@ class Initialisers {
 
   static vk::SurfaceKHR createSurface(const vk::Instance &instance, GLFWwindow *window);
 
-  static type::SwapChainSupportDetails querySwapChainSupport(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface);
+  static type::SwapchainSupportDetails querySwapchainSupport(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface);
 
   static type::QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice &device, const vk::SurfaceKHR &surface);
 
@@ -56,11 +54,19 @@ class Initialisers {
 
   static VmaAllocator createAllocator(const vk::Instance &instance, const vk::PhysicalDevice &physicalDevice, const vk::Device &device);
   
+  static type::SwapchainData createSwapchain(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface, const vk::Device &device,  GLFWwindow *window);
+  
  private:
   static bool checkDeviceExtensionSupport(const vk::PhysicalDevice &device, const std::vector<const char *> &deviceExtensions);
 
   static uint32_t rateDevice(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface,
                              const std::vector<const char *> &deviceExtensions);
+
+  static vk::SurfaceFormatKHR chooseSwapchainSurfaceFormat(const std::vector<vk::SurfaceFormatKHR> &availableFormats);
+
+  static vk::PresentModeKHR chooseSwapchainPresentMode(const std::vector<vk::PresentModeKHR> &availablePresentModes);
+
+  static vk::Extent2D chooseSwapchainExtent(const vk::SurfaceCapabilitiesKHR &capabilities, GLFWwindow *window);
 };
 
 }  // namespace rendering
