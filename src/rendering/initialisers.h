@@ -67,6 +67,10 @@ class Initialisers {
   static vk::PresentModeKHR chooseSwapchainPresentMode(const std::vector<vk::PresentModeKHR> &availablePresentModes);
 
   static vk::Extent2D chooseSwapchainExtent(const vk::SurfaceCapabilitiesKHR &capabilities, GLFWwindow *window);
+
+  static std::vector<vk::ImageView> createSwapchainImageViews(const vk::Device &device, const std::vector<vk::Image> &images, const vk::Format &format);
+  
+  static vk::ImageView createImageView(const vk::Device &device, const vk::Image &image, const vk::Format &format, vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
 };
 
 }  // namespace rendering

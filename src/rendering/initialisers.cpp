@@ -367,10 +367,13 @@ type::SwapchainData Initialisers::createSwapchain(const vk::PhysicalDevice &phys
     throw std::runtime_error("failed to create swap chain!");
   }
 
+  const std::vector<vk::Image, std::allocator<vk::Image>> &images = device.getSwapchainImagesKHR(swapchain);
+  vk::Format format = surface_format.format;
   return {
       .swapchain = swapchain,
-      .images = device.getSwapchainImagesKHR(swapchain),
-      .format = surface_format.format,
+      .images = images,
+      .imageViews = createSwapchainImageViews(device, images, format),
+      .format = format,
       .extent = extent,
   };
 }
@@ -459,6 +462,39 @@ vk::Extent2D Initialisers::chooseSwapchainExtent(const vk::SurfaceCapabilitiesKH
   actual_extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actual_extent.height));
 
   return actual_extent;
+}
+
+std::vector<vk::ImageView> Initialisers::createSwapchainImageViews(const vk::Device &device, const std::vector<vk::Image> &images, const vk::Format &format) {
+  std::vector<vk::ImageView> image_views(images.size());
+
+  std::size_t i = 0;
+  for (const auto &swap_chain_image : images) {
+    image_views[i] = createImageView(device, swap_chain_image, format, vk::ImageAspectFlagBits::eColor, 1);
+    i++;
+  }
+  
+  return image_views;
+}
+
+vk::ImageView Initialisers::createImageView(const vk::Device &device, const vk::Image &image, const vk::Format &format,
+                                            vk::ImageAspectFlags aspectFlags, uint32_t mipLevels) {
+  vk::ImageViewCreateInfo view_info = {};
+  view_info.image = image;
+  view_info.format = format;
+
+  view_info.viewType = vk::ImageViewType::e2D;
+  view_info.subresourceRange.aspectMask = aspectFlags;
+  view_info.subresourceRange.baseMipLevel = 0;
+  view_info.subresourceRange.levelCount = mipLevels;
+  view_info.subresourceRange.baseArrayLayer = 0;
+  view_info.subresourceRange.layerCount = 1;
+
+  vk::ImageView image_view;
+  if (device.createImageView(&view_info, nullptr, &image_view) != vk::Result::eSuccess) {
+    throw std::runtime_error("failed to create texture image view!");
+  }
+
+  return image_view;
 }
 
 }  // namespace rendering

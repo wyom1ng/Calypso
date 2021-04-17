@@ -58,10 +58,8 @@ class Engine {
   vk::Queue transferQueue_;
   vk::SurfaceKHR surface_;
   
-  
   type::SwapchainData swapchainData_;
 
-  std::vector<vk::ImageView> swapChainImageViews_;
   std::vector<vk::Framebuffer> swapChainFramebuffers_;
 
   vk::RenderPass renderPass_;
@@ -135,8 +133,6 @@ class Engine {
   void cleanupSwapChain();
 
   void recreateSwapchain();
-
-  void createImageViews();
 
   vk::ShaderModule createShaderModule(const std::vector<std::byte> &code);
 

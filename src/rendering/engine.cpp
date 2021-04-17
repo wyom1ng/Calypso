@@ -89,7 +89,6 @@ void Engine::initVulkan() {
   allocator_ = Initialisers::createAllocator(instance_, physicalDevice_, device_);
 
   swapchainData_ = Initialisers::createSwapchain(physicalDevice_, surface_, device_, window_);
-  createImageViews();
   createRenderPass();
   createDescriptorSetLayout();
   createGraphicsPipeline();
@@ -128,6 +127,8 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL Engine::debugCallback(VkDebugUtilsMessageSeveri
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
       logger->error(pCallbackData->pMessage);
       break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
+      break;
   }
 
   return VK_FALSE;
@@ -154,7 +155,7 @@ void Engine::cleanupSwapChain() {
   device_.destroyPipelineLayout(pipelineLayout_, nullptr);
 
   device_.destroyRenderPass(renderPass_, nullptr);
-  for (auto &image_view : swapChainImageViews_) device_.destroyImageView(image_view, nullptr);
+  for (auto &image_view : swapchainData_.imageViews) device_.destroyImageView(image_view, nullptr);
   device_.destroySwapchainKHR(swapchainData_.swapchain, nullptr);
 }
 
@@ -172,7 +173,6 @@ void Engine::recreateSwapchain() {
   cleanupSwapChain();
 
   swapchainData_ = Initialisers::createSwapchain(physicalDevice_, surface_, device_, window_);
-  createImageViews();
   createRenderPass();
   createGraphicsPipeline();
   createColourResources();
@@ -182,15 +182,6 @@ void Engine::recreateSwapchain() {
   createDescriptorPool();
   createDescriptorSets();
   createCommandBuffers();
-}
-
-void Engine::createImageViews() {
-  swapChainImageViews_.resize(swapchainData_.images.size());
-  std::size_t i = 0;
-  for (auto &swap_chain_image : swapchainData_.images) {
-    swapChainImageViews_[i] = createImageView(swap_chain_image, swapchainData_.format, vk::ImageAspectFlagBits::eColor, 1);
-    i++;
-  }
 }
 
 vk::ShaderModule Engine::createShaderModule(const std::vector<std::byte> &code) {
@@ -434,10 +425,10 @@ void Engine::createGraphicsPipeline() {
 }
 
 void Engine::createFramebuffers() {
-  swapChainFramebuffers_.resize(swapChainImageViews_.size());
+  swapChainFramebuffers_.resize(swapchainData_.imageViews.size());
 
   std::size_t i = 0;
-  for (auto &swap_chain_image_view : swapChainImageViews_) {
+  for (auto &swap_chain_image_view : swapchainData_.imageViews) {
     std::array<vk::ImageView, 3> attachments = {
         colourImageView_,
         depthImageView_,
