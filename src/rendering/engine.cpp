@@ -89,7 +89,7 @@ void Engine::initVulkan() {
   allocator_ = Initialisers::createAllocator(instance_, physicalDevice_, device_);
 
   swapchainData_ = Initialisers::createSwapchain(physicalDevice_, surface_, device_, window_);
-  createRenderPass();
+  renderPass_ = Initialisers::createRenderPass(device_, swapchainData_.format, sampleCount_, findDepthFormat().value(), sampleCount_);
   createDescriptorSetLayout();
   createGraphicsPipeline();
   createCommandPools();
@@ -173,7 +173,7 @@ void Engine::recreateSwapchain() {
   cleanupSwapChain();
 
   swapchainData_ = Initialisers::createSwapchain(physicalDevice_, surface_, device_, window_);
-  createRenderPass();
+  renderPass_ = Initialisers::createRenderPass(device_, swapchainData_.format, sampleCount_, findDepthFormat().value(), sampleCount_);
   createGraphicsPipeline();
   createColourResources();
   createDepthResources();
@@ -196,74 +196,6 @@ vk::ShaderModule Engine::createShaderModule(const std::vector<std::byte> &code) 
   }
 
   return shader_module;
-}
-
-void Engine::createRenderPass() {
-  vk::AttachmentDescription color_attachment = {};
-  color_attachment.format = swapchainData_.format;
-  color_attachment.samples = sampleCount_;
-  color_attachment.loadOp = vk::AttachmentLoadOp::eClear;
-  color_attachment.storeOp = vk::AttachmentStoreOp::eStore;
-  color_attachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-  color_attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-  color_attachment.initialLayout = vk::ImageLayout::eUndefined;
-  color_attachment.finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
-
-  vk::AttachmentReference color_attachment_ref = {};
-  color_attachment_ref.attachment = 0;
-  color_attachment_ref.layout = vk::ImageLayout::eColorAttachmentOptimal;
-
-  vk::AttachmentDescription depth_attachment = {};
-  depth_attachment.format = findDepthFormat().value();
-  depth_attachment.samples = sampleCount_;
-  depth_attachment.loadOp = vk::AttachmentLoadOp::eClear;
-  depth_attachment.storeOp = vk::AttachmentStoreOp::eDontCare;
-  depth_attachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-  depth_attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-  depth_attachment.initialLayout = vk::ImageLayout::eUndefined;
-  depth_attachment.finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-
-  vk::AttachmentReference depth_attachment_ref = {};
-  depth_attachment_ref.attachment = 1;
-  depth_attachment_ref.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
-
-  vk::AttachmentDescription color_attachment_resolve = {};
-  color_attachment_resolve.format = swapchainData_.format;
-  color_attachment_resolve.samples = vk::SampleCountFlagBits::e1;
-  color_attachment_resolve.loadOp = vk::AttachmentLoadOp::eDontCare;
-  color_attachment_resolve.storeOp = vk::AttachmentStoreOp::eStore;
-  color_attachment_resolve.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-  color_attachment_resolve.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-  color_attachment_resolve.initialLayout = vk::ImageLayout::eUndefined;
-  color_attachment_resolve.finalLayout = vk::ImageLayout::ePresentSrcKHR;
-
-  vk::AttachmentReference color_attachment_resolve_ref = {};
-  color_attachment_resolve_ref.attachment = 2;
-  color_attachment_resolve_ref.layout = vk::ImageLayout::eColorAttachmentOptimal;
-
-  vk::SubpassDescription subpass = {};
-  subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
-  subpass.setColorAttachments(color_attachment_ref);
-  subpass.setPDepthStencilAttachment(&depth_attachment_ref);
-  subpass.setResolveAttachments(color_attachment_resolve_ref);
-
-  vk::SubpassDependency dependency = {};
-  dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-  dependency.dstSubpass = 0;
-  dependency.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests;
-  dependency.srcAccessMask = vk::AccessFlagBits::eNoneKHR;
-  dependency.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests;
-  dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-
-  std::array<vk::AttachmentDescription, 3> attachments = {color_attachment, depth_attachment, color_attachment_resolve};
-  vk::RenderPassCreateInfo render_pass_info = {};
-  render_pass_info.setAttachments(attachments);
-  render_pass_info.setSubpasses(subpass);
-  render_pass_info.setDependencies(dependency);
-
-  if (device_.createRenderPass(&render_pass_info, nullptr, &renderPass_) != vk::Result::eSuccess) {
-    throw std::runtime_error("failed to create render pass!");
-  }
 }
 
 void Engine::createDescriptorSetLayout() {

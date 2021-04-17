@@ -56,6 +56,8 @@ class Initialisers {
   
   static type::SwapchainData createSwapchain(const vk::PhysicalDevice &physicalDevice, const vk::SurfaceKHR &surface, const vk::Device &device,  GLFWwindow *window);
   
+  static vk::RenderPass createRenderPass(const vk::Device &device, const vk::Format &colourFormat, const vk::SampleCountFlagBits &colourSampleCount, const vk::Format &depthFormat, const vk::SampleCountFlagBits &depthSampleCount);
+  
  private:
   static bool checkDeviceExtensionSupport(const vk::PhysicalDevice &device, const std::vector<const char *> &deviceExtensions);
 
