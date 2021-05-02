@@ -136,8 +136,6 @@ class Engine {
 
   vk::ShaderModule createShaderModule(const std::vector<std::byte> &code);
 
-  void createDescriptorSetLayout();
-
   void createGraphicsPipeline();
 
   void createFramebuffers();

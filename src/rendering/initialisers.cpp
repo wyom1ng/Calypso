@@ -450,6 +450,31 @@ vk::RenderPass Initialisers::createRenderPass(const vk::Device &device, const vk
   return render_pass;
 }
 
+vk::DescriptorSetLayout Initialisers::createDescriptorSetLayout(const vk::Device &device) {
+  vk::DescriptorSetLayoutBinding ubo_layout_binding = {};
+  ubo_layout_binding.binding = 0;
+  ubo_layout_binding.descriptorCount = 1;
+  ubo_layout_binding.descriptorType = vk::DescriptorType::eUniformBuffer;
+  ubo_layout_binding.stageFlags = vk::ShaderStageFlagBits::eVertex;
+
+  vk::DescriptorSetLayoutBinding sampler_layout_binding = {};
+  sampler_layout_binding.binding = 1;
+  sampler_layout_binding.descriptorCount = 1;
+  sampler_layout_binding.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+  sampler_layout_binding.stageFlags = vk::ShaderStageFlagBits::eFragment;
+
+  std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {ubo_layout_binding, sampler_layout_binding};
+  vk::DescriptorSetLayoutCreateInfo layout_info = {};
+  layout_info.setBindings(bindings);
+
+  vk::DescriptorSetLayout descriptor_set_layout;
+  if (device.createDescriptorSetLayout(&layout_info, nullptr, &descriptor_set_layout) != vk::Result::eSuccess) {
+    throw std::runtime_error("failed to create descriptor set layout!");
+  }
+  
+  return descriptor_set_layout;
+}
+
 bool Initialisers::checkDeviceExtensionSupport(const vk::PhysicalDevice &device, const std::vector<const char *> &deviceExtensions) {
   auto available_extensions = device.enumerateDeviceExtensionProperties();
   std::set<std::string_view> required_extensions(deviceExtensions.begin(), deviceExtensions.end());

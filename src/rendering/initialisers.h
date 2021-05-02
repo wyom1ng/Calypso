@@ -58,6 +58,8 @@ class Initialisers {
   
   static vk::RenderPass createRenderPass(const vk::Device &device, const vk::Format &colourFormat, const vk::SampleCountFlagBits &colourSampleCount, const vk::Format &depthFormat, const vk::SampleCountFlagBits &depthSampleCount);
   
+  static vk::DescriptorSetLayout createDescriptorSetLayout(const vk::Device &device);
+  
  private:
   static bool checkDeviceExtensionSupport(const vk::PhysicalDevice &device, const std::vector<const char *> &deviceExtensions);
 

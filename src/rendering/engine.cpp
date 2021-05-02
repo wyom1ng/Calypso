@@ -90,7 +90,7 @@ void Engine::initVulkan() {
 
   swapchainData_ = Initialisers::createSwapchain(physicalDevice_, surface_, device_, window_);
   renderPass_ = Initialisers::createRenderPass(device_, swapchainData_.format, sampleCount_, findDepthFormat().value(), sampleCount_);
-  createDescriptorSetLayout();
+  descriptorSetLayout_ = Initialisers::createDescriptorSetLayout(device_);
   createGraphicsPipeline();
   createCommandPools();
   createColourResources();
@@ -196,28 +196,6 @@ vk::ShaderModule Engine::createShaderModule(const std::vector<std::byte> &code) 
   }
 
   return shader_module;
-}
-
-void Engine::createDescriptorSetLayout() {
-  vk::DescriptorSetLayoutBinding ubo_layout_binding = {};
-  ubo_layout_binding.binding = 0;
-  ubo_layout_binding.descriptorCount = 1;
-  ubo_layout_binding.descriptorType = vk::DescriptorType::eUniformBuffer;
-  ubo_layout_binding.stageFlags = vk::ShaderStageFlagBits::eVertex;
-
-  vk::DescriptorSetLayoutBinding sampler_layout_binding = {};
-  sampler_layout_binding.binding = 1;
-  sampler_layout_binding.descriptorCount = 1;
-  sampler_layout_binding.descriptorType = vk::DescriptorType::eCombinedImageSampler;
-  sampler_layout_binding.stageFlags = vk::ShaderStageFlagBits::eFragment;
-
-  std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {ubo_layout_binding, sampler_layout_binding};
-  vk::DescriptorSetLayoutCreateInfo layout_info = {};
-  layout_info.setBindings(bindings);
-
-  if (device_.createDescriptorSetLayout(&layout_info, nullptr, &descriptorSetLayout_) != vk::Result::eSuccess) {
-    throw std::runtime_error("failed to create descriptor set layout!");
-  }
 }
 
 void Engine::createGraphicsPipeline() {
