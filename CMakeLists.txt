@@ -3,6 +3,8 @@ project(Calypso)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
+set(CMAKE_CXX_COMPILER_LAUNCHER "ccache;distcc")
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 
 add_compile_definitions(ROOT_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
 

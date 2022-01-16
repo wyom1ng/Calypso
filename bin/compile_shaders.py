@@ -1,10 +1,12 @@
-﻿import glob
+﻿#!/usr/bin/env python
+
+import glob
 import os
 import pathlib
 
 script_dir = os.path.dirname(os.path.realpath(__file__));
-shader_dir = script_dir + "\..\shaders\src";
-output_dir = script_dir + "\..\shaders\compiled";
+shader_dir = os.path.join(script_dir, "../shaders/src");
+output_dir = os.path.join(script_dir, "../shaders/compiled");
 
 
 def main():
